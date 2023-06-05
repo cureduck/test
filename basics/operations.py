@@ -14,7 +14,7 @@ class Bash(Action):
     def __init__(self):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            Targeting([False, False, 1, 2]),
+            (),
             ((Targeting([False, False, 1, 2]), Damage((10, 15))),)
         )
 
@@ -29,7 +29,7 @@ class Slash(Action):
     def __init__(self):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            Targeting([False, True, 1, 2]),
+            (PosReqm(Targeting([False, True, 1, 2])),),
             ((Targeting([False, True, 1, 2]), Damage((15, 20))),)
         )
 
@@ -47,8 +47,7 @@ class Bite(Action):
                 SelfPositionalRequirement(Position([True, 0, 1, 2])),
                 ValidTargetRequirement(Targeting([False, True, 0, 1, 2]))
             ),
-            Targeting([False, True, 0, 1, 2])
-            ,
+            (PosReqm(Targeting([False, True, 0, 1, 2])),),
             ((Targeting([False, True, 0, 1, 2]), Damage((4, 7))),)
         )
 
@@ -61,7 +60,7 @@ class Defend(Action):
     def __init__(self):
         super().__init__(
             (),
-            Targeting([True, False, ITSELF]),
+            (),
             ((Targeting([True, False, ITSELF]), AddSelfBuff(Strength())),)
         )
 
@@ -74,8 +73,8 @@ class Move(Action):
 
     def __init__(self, distance: int):
         super().__init__(
-            tuple(),
-            Targeting([True, True, EXCEPT_ITSELF]),
+            (),
+            (PosReqm(Targeting([True, True, EXCEPT_ITSELF])),),
             ((Targeting([True, True, EXCEPT_ITSELF]), MoveTo(distance)),)
         )
 
@@ -84,6 +83,6 @@ class Skip(Action):
     def __init__(self):
         super().__init__(
             (),
-            Targeting([True, False, ITSELF]),
+            (PosReqm(Targeting([True, True, ITSELF])),),
             ()
         )

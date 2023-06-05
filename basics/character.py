@@ -21,6 +21,10 @@ class Brain(ABC):
     def get_castable_actions(caster: CombatantMixIn) -> tuple[Action, ...]:
         return tuple(filter(lambda x: x.check(caster), caster.get_actions()))
 
+    @staticmethod
+    def get_castable_targets(caster: CombatantMixIn, action: Action, targeting: Optional[Targeting]) -> Targeting:
+        return action.check_target(caster, targeting)
+
 
 class PlayerBrain(Brain):
     async def decide(self, caster: CombatantMixIn, arena: Arena) -> Optional[Decision]:
@@ -32,10 +36,10 @@ class PlayerBrain(Brain):
                     return None
                 action_index = int(input("choose action:"))
                 action = actions[action_index]
-                if action.tar_reqm is None or not action.tar_reqm.selective:
+                if action.tar_reqm in (None, ()):
                     return Decision([action, None])
                 target_index = int(input("choose target:"))
-                targeting = action.tar_reqm.choose(target_index)
+                targeting = action.check_target(caster).choose(target_index)
                 return Decision([action, targeting])
             except IndexError:
                 print("action index out of range, try again")
@@ -54,7 +58,7 @@ class AIBrain(Brain):
         if len(actions) == 0:
             return None
         action = self.choose_preferred_action(actions, caster)
-        if action.tar_reqm is None or not action.tar_reqm.selective:
+        if action.tar_reqm in (None, ()):
             return Decision([Action, None])
         targeting = self.choose_preferred_target(caster, action, arena)
         return Decision([action, targeting])
@@ -69,12 +73,10 @@ class AIBrain(Brain):
         """
         temporary random choose
         """
-        if action.tar_reqm is None:
+        if action.tar_reqm in (None, ()):
             return None
-        if not action.tar_reqm.selective:
-            return None
-        return action.tar_reqm.alt(arena.find_position(caster)).random_choose(self.rand)
-
+        targets = self.get_castable_targets(caster, action, None)
+        return targets.random_choose(self.rand)
 
 monster_brain = AIBrain(Random())
 
@@ -144,4 +146,4 @@ class WildDog(Monster):
         super().__init__(name, cur_hp, max_hp, speed)
 
     def get_actions(self) -> (Action, ...):
-        return Bite()
+        return Bite(), Move(4)

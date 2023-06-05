@@ -82,6 +82,10 @@ class Targeting(tuple[bool, bool, int, ...]):
         return f"Targeting({friendly}, {selective}, {self[2:]})"
 
     @property
+    def none(self) -> bool:
+        return len(self) == 2
+
+    @property
     def friendly(self) -> bool:
         """
         whether the targets are friendly, true for ally, false for enemy
@@ -331,8 +335,12 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
         return Arena.Instance.find_target(self, target)
 
     @property
-    def position(self) -> int:
+    def index(self) -> int:
         return Arena.Instance.find_index(self)
+
+    @property
+    def position(self) -> Position:
+        return Arena.Instance.find_position(self)
 
     def take(self, action: Action, target: Optional[Targeting]):
         action.execute(self, target)
@@ -373,15 +381,18 @@ class Arena:
             for i in range(previous_position, target, offset):
                 print(i)
                 self.left[i] = self.left[i + offset]
-                self.left[i].moved(i)
+                if self.left[i] is not None:
+                    self.left[i].moved(i)
             self.left[target] = combatant
         elif combatant in self.right:
             previous_position = self.right.index(combatant)
-            forward = previous_position < target
-            offset = 1 if forward else -1
-            for i in range(previous_position, target):
+            forward = previous_position > target
+            offset = -1 if forward else 1
+            for i in range(previous_position, target, offset):
                 self.right[i] = self.right[i + offset]
-                self.right[i].moved(i)
+                if self.right[i] is not None:
+                    self.right[i].moved(i)
+
             self.right[target] = combatant
 
     def get_current_actions(self) -> tuple[Action, ...]:
@@ -403,7 +414,7 @@ class Arena:
                 self._round += 1
             combatant = self.action_order.pop(-1)
             self._current = combatant
-            if combatant.dead:
+            if combatant.dead or combatant not in self.left and combatant not in self.right:
                 continue
             if combatant in self.left:
                 print(self.get_arena_info())
@@ -500,7 +511,13 @@ class PreReqm(Requirement, ABC):
 
 class PostReqm(Requirement, ABC):
     @abstractmethod
-    def check(self, receiver: CombatantMixIn, targeting: Targeting) -> bool:
+    def check(self, receiver: CombatantMixIn, targeting: Optional[Targeting]) -> Targeting:
+        """
+        filter out invalid targets
+        @param receiver:
+        @param targeting:
+        @return:
+        """
         pass
 
 
@@ -509,7 +526,7 @@ class SelfPositionalRequirement(PreReqm):
         self.position = position
 
     def check(self, receiver: CombatantMixIn) -> bool:
-        return self.position.include(receiver.position)
+        return self.position.include(receiver.index)
 
     def __repr__(self):
         return f"Need Self Position: {self.position}"
@@ -526,8 +543,22 @@ class ValidTargetRequirement(PreReqm):
         return f"Need Valid Target: {self.target}"
 
 
+class PosReqm(PostReqm):
+    def __init__(self, target: Targeting):
+        self.target = target
+
+    def check(self, receiver: CombatantMixIn, targeting: Optional[Targeting]) -> Targeting:
+        if targeting is None:
+            return self.target.alt(receiver.position)
+        else:
+            return targeting
+
+    def __repr__(self):
+        return f"Need Targeting: {self.target}"
+
+
 class Action:
-    def __init__(self, exe_reqm: tuple[PreReqm, ...], tar_reqm: Targeting,
+    def __init__(self, exe_reqm: tuple[PreReqm, ...], tar_reqm: tuple[PostReqm, ...],
                  effects: tuple[tuple[Targeting, Effect], ...]):
         self.exe_reqm = exe_reqm
         self.tar_reqm = tar_reqm
@@ -535,6 +566,13 @@ class Action:
 
     def check(self, receiver: CombatantMixIn) -> bool:
         return all(req.check(receiver) for req in self.exe_reqm)
+
+    def check_target(self, receiver: CombatantMixIn, target: Optional[Targeting] = None) -> Targeting:
+        for req in self.tar_reqm:
+            target = req.check(receiver, target)
+            if target.none:
+                raise ValueError("No valid target")
+        return target
 
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
         for tar_eff in self.effects:
@@ -711,7 +749,7 @@ class MoveTo(Effect):
         position = target[2]
         if position < 0 or position > 5:
             raise ValueError("Invalid position")
-        if receiver.position - position > self.distance:
+        if receiver.index - position > self.distance:
             raise ValueError("Too far")
         receiver.move(position)
 
