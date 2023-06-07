@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from .buffs import *
-from .gameplay import *
 from .effects import *
+
 
 class Bash(Action):
     """
@@ -15,7 +15,7 @@ class Bash(Action):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
             (),
-            ((Targeting(False, False, 1, 2), Damage((10, 15))),)
+            ((Targeting(False, False, 1, 2), Damage((10, 15), IGNORE_EVADE=True)),)
         )
 
 

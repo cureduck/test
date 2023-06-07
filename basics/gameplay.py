@@ -4,13 +4,11 @@ from abc import abstractmethod, ABC
 from enum import Enum, IntFlag
 from functools import singledispatchmethod
 from random import Random
-from typing import Optional, NoReturn, Sequence
+from typing import Optional, NoReturn, Sequence, Any
 
 from .rand import *
 from .singleton import *
-
-IGNORE_EVADE = "ignore evade"
-IGNORE_SHIELD = "ignore shield"
+from .KEYWORDS import *
 
 ARENA_WIDTH = 4
 
@@ -247,7 +245,7 @@ class StatusMixIn(metaclass=StatusMetaClass):
     def suffer(self, attack: Attack) -> NoReturn:
         if attack.missed:
             return
-        if not attack.critted:
+        if attack.critted is None:
             attack.critted = game_random.random() < attack.crit
         if attack.critted:
             dmg = int(attack.min * attack.mag * 1.5)
@@ -261,10 +259,19 @@ class StatusMixIn(metaclass=StatusMetaClass):
 
 
 class Attack:
-    def __init__(self, amount: tuple[int, int], kw: str = "", mag: float = 1.0, acc: float = 1.0, crit=0,
-                 missed=False, critted=False):
+    def __init__(self, amount: tuple[int, int], mag: float = 1.0, acc: float = 1.0, crit=0,
+                 missed: Optional[bool] = None, critted: Optional[bool] = None):
+        """
+
+        @param amount: min and max damage
+        @param kw: keyword
+        @param mag: magnification, 1 means normal, 0 means no damage, 2 means double damage
+        @param acc: chance to hit, 0 means can't hit, between 0 and 1 means can hit
+        @param crit: chance to crit, 0 means can't crit, between 0 and 1 means can crit
+        @param missed: None means haven't checked yet, True means missed, False means not missed
+        @param critted: None means haven't checked yet, True means critted, False means not critted
+        """
         self.amount = amount
-        self.kw = kw
         self.mag = mag
         self.acc = acc
         self.crit = crit
@@ -274,20 +281,6 @@ class Attack:
     def miss_check(self) -> bool:
         self.missed = game_random.random() < self.acc
         return self.missed
-
-    def contains_kw(self, kw: str) -> bool:
-        if self.kw is None:
-            return False
-        return kw in self.kw.split('|')
-
-    def add_kw(self, kw: str):
-        if self.kw is None:
-            self.kw = kw
-        else:
-            self.kw += f"|{kw}"
-
-    def set_kws(self, kws: list[str]):
-        self.kw = '|'.join(kws)
 
     @property
     def min(self) -> int:
@@ -310,28 +303,32 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
     def factors(self, timing: Timing, **kw) -> tuple[FactorMixIn, ...]:
         pass
 
-    def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], kw: str) -> NoReturn:
+    def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], **passed) -> Optional[dict[str, Any]]:
+        """
+        Attack the enemy.
+        @param enemy:
+        @param amount:
+        @param passed: passed to factors
+        @return:
+        """
         if enemy is None or enemy.dead:
-            return
-        attack = Attack(amount, kw)
-        factors = self.modify(Timing.Attack, attack=attack, enemy=enemy, kw=kw)
-        self.after_affect(Timing.Attack, factors, attack=attack, enemy=enemy, kw=kw)
-        attack.miss_check()
+            return passed
+        attack = Attack(amount)
+        attack.missed = passed.get(MISSED, None)
+        attack.critted = passed.get(CRITTED, None)
+        factors = self.modify(Timing.Attack, attack=attack, enemy=enemy, **passed)
+        self.after_affect(Timing.Attack, factors, attack=attack, enemy=enemy, **passed)
+        if attack.missed is None:
+            attack.miss_check()
         if attack.missed:
-            return
-        attack = enemy.defend(attack, self, kw)
+            passed[MISSED] = True
+        attack = enemy.defend(attack, self, **passed)
         enemy.suffer(attack)
+        return passed
 
-    def forge_attack(self, enemy: CombatantMixIn, amount: tuple[int, int], kw: str) -> Optional[Attack]:
-        if enemy is None or enemy.dead:
-            return
-        attack = Attack(amount, kw)
-        self.modify(Timing.Attack, attack=attack, enemy=enemy, kw=kw)
-        return attack
-
-    def defend(self, attack: Attack, enemy: CombatantMixIn, kw: str) -> Attack:
-        factors = self.modify(Timing.Defend, attack=attack, enemy=enemy, kw=kw)
-        self.after_affect(Timing.Defend, factors, attack=attack, enemy=enemy, kw=kw)
+    def defend(self, attack: Attack, enemy: CombatantMixIn, **passed) -> Attack:
+        factors = self.modify(Timing.Defend, attack=attack, enemy=enemy, **passed)
+        self.after_affect(Timing.Defend, factors, attack=attack, enemy=enemy, **passed)
         return attack
 
     def moved(self, target: int):
@@ -343,10 +340,10 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
         Arena.Instance.move(self, target)
         self.after_affect(Timing.Move, factors, target=target)
 
-    def add_buff(self, buff: Buff):
-        factors = self.modify(Timing.Buffed, buff=buff)
+    def add_buff(self, buff: Buff, **kw):
+        factors = self.modify(Timing.Buffed, buff=buff, **kw)
         self.buffs.add(buff)
-        self.after_affect(Timing.Buffed, factors, buff=buff)
+        self.after_affect(Timing.Buffed, factors, buff=buff, **kw)
 
     def die(self):
         pass
@@ -362,10 +359,7 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
         for factor in factors:
             factor.after_affect(timing, **kw)
 
-    def heal(self, amount):
-        pass
-
-    def healed(self, amount):
+    def heal(self, amount, **passed):
         pass
 
     def find_target(self, target: Targeting) -> tuple[Optional[CombatantMixIn], ...]:
@@ -497,7 +491,7 @@ class Arena(SingletonMixIn):
 
         friendly, selective = target.friendly, target.selective
         targets = target.positions
-        if friendly ^ (pos.left):
+        if friendly ^ pos.left:
             candi = self.right  # -1 means combatant himself
             return tuple(find(candi, i) for i in targets)
         else:
@@ -629,6 +623,7 @@ class Action:
         return target
 
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
+        result = None
         for tar_eff in self.effects:
             tar, eff = tar_eff
             if tar.selective and target is None:
@@ -638,7 +633,10 @@ class Action:
 
             if tar.selective:
                 tar = target
-            eff.execute(receiver, tar)
+            if result is None:
+                result = eff.execute(receiver, tar)
+            else:
+                result = eff.execute(receiver, tar, **result)
 
     def __repr__(self):
         return f"{self.__class__.__name__}"
@@ -764,5 +762,12 @@ class Effect(ABC):
         pass
 
     @abstractmethod
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], **passed: dict) -> dict:
+        """
+
+        @param receiver:
+        @param target:
+        @param passed: the keywords passed from previous effect
+        @return:
+        """
         pass

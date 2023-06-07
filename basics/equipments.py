@@ -1,9 +1,8 @@
 from __future__ import annotations
-from typing import Union
 
 from .character import *
 from .operations import *
-
+from .KEYWORDS import *
 
 class Sword(OneHandWeapon):
     def __init__(self):
@@ -20,13 +19,13 @@ class Shield(OffHand):
     def action(self) -> tuple[Action, ...]:
         return (Defend(),)
 
-    def may_affect(self, timing: Timing) -> bool:
+    def may_affect(self, timing: Timing, **kw) -> bool:
         if timing == Timing.Defend:
             return True
         return False
 
     def affect(self, timing: Timing, **kw: dict[str, Union[Character, Attack]]):
         if timing == Timing.Defend:
-            attack = kw["attack"]
+            attack = kw[ATTACK]
             assert isinstance(attack, Attack)
             attack.crit /= 2

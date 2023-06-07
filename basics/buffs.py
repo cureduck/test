@@ -2,20 +2,24 @@ from __future__ import annotations
 from typing import Union
 
 from .gameplay import *
+from .KEYWORDS import *
 
 
 class Dodge(PositiveBuff):
-    def may_affect(self, timing: Timing) -> bool:
+    def may_affect(self, timing: Timing, **kw) -> bool:
         if timing == Timing.Defend:
             return True
         return False
 
     def affect(self, timing: Timing, **kw: dict[str, Union[CombatantMixIn, Attack]]):
         if timing == Timing.Defend:
-            attack = kw["attack"]
+            attack = kw[ATTACK]
             assert isinstance(attack, Attack)
-            if not attack.contains_kw(IGNORE_EVADE):
+            if kw.get(IGNORE_EVADE, False):
+                print("cant dodge this attack!")
+            else:
                 attack.acc /= 2
+                print("dodge the attack!")
 
     @property
     def name(self) -> str:
@@ -26,14 +30,14 @@ class Dodge(PositiveBuff):
 
 
 class Strength(PositiveBuff):
-    def may_affect(self, timing: Timing) -> bool:
+    def may_affect(self, timing: Timing, **kw) -> bool:
         if timing == Timing.Attack:
             return True
         return False
 
     def affect(self, timing: Timing, **kw: dict[str, Union[CombatantMixIn, Attack]]):
         if timing == Timing.Attack:
-            attack = kw["attack"]
+            attack = kw[ATTACK]
             assert isinstance(attack, Attack)
             attack.mag += .5
 

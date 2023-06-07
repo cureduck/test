@@ -97,7 +97,7 @@ class Character(CombatantMixIn, EquipageMixIn):
         return await player_brain.decide(self, Arena.Instance)
 
     def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
-        return self.buffs + self.equipage.factors
+        return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs + self.equipage.factors))
 
     def __init__(self, name: str, cur_hp: int, max_hp: int, speed: int, buffs: Buffs = None, *equipment: Equipment):
         CombatantMixIn.__init__(self, cur_hp, max_hp, speed, buffs)
@@ -116,9 +116,8 @@ class Character(CombatantMixIn, EquipageMixIn):
 
 
 class Monster(CombatantMixIn):
-    @abstractmethod
-    def factors(self, timing: Timing, **kw) -> tuple[FactorMixIn, ...]:
-        pass
+    def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
+        return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs))
 
     def __init__(self, name: str, cur_hp: int, max_hp: int, speed: int, buffs: Buffs = None):
         CombatantMixIn.__init__(self, cur_hp, max_hp, speed, buffs)
@@ -140,18 +139,14 @@ class Monster(CombatantMixIn):
 
 
 class WildDog(Monster):
+
     @property
     def preference(self) -> tuple[str, ...]:
-        """
-        preference of actions and action keywords
-        """
         return ()
-
-    def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
-        return self.buffs
 
     def __init__(self, name: str, cur_hp: int = 24, max_hp: int = 24, speed: int = 9):
         super().__init__(name, cur_hp, max_hp, speed)
+        self.buffs = Buffs(Dodge())
 
     def get_actions(self) -> (Action, ...):
         return Bite(), Move(1)
