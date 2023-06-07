@@ -7,6 +7,7 @@ from random import Random
 from typing import Optional, NoReturn, Sequence
 
 from .rand import *
+from .singleton import *
 
 IGNORE_EVADE = "ignore evade"
 IGNORE_SHIELD = "ignore shield"
@@ -26,7 +27,7 @@ class FactorMixIn:
     def affect(self, timing: Timing, **kw) -> NoReturn:
         pass
 
-    def may_affect(self, timing: Timing) -> bool:
+    def may_affect(self, timing: Timing, **kw) -> bool:
         return False
 
     @staticmethod
@@ -67,7 +68,7 @@ class TargetingError(ValueError):
     pass
 
 
-class Targeting(tuple[bool, bool, int, ...]):
+class Targeting:
     """
     first element is a bool, indicating whether its ally or enemy
     second element is a bool, indicating whether its selective or aoe
@@ -76,41 +77,47 @@ class Targeting(tuple[bool, bool, int, ...]):
     -2 means everywhere but the caster itself
     """
 
+    def __init__(self, friendly: bool, selective: bool, *args: int):
+        self.friendly = friendly
+        self.selective = selective
+        self.positions = args
+
+    def __index__(self):
+        return self.positions
+
+    def __getitem__(self, item):
+        return self.positions[item]
+
+    def __sizeof__(self):
+        return len(self.positions)
+
+    def __len__(self):
+        return len(self.positions)
+
     def __repr__(self):
-        friendly = "ally" if self[0] else "enemy"
-        selective = "selective" if self[1] else "aoe"
-        return f"Targeting({friendly}, {selective}, {self[2:]})"
+        friendly = "ally" if self.friendly else "enemy"
+        selective = "selective" if self.selective else "aoe"
+        return f"Targeting({friendly}, {selective}, {self.positions})"
 
     @property
     def none(self) -> bool:
-        return len(self) == 2
-
-    @property
-    def friendly(self) -> bool:
-        """
-        whether the targets are friendly, true for ally, false for enemy
-        """
-        return self[0]
-
-    @property
-    def selective(self) -> bool:
-        return self[1]
+        return len(self) == 0
 
     @property
     def selfhood(self) -> bool:
-        return len(self) == 3 and self[2] == ITSELF
+        return len(self) == 1 and self[0] == ITSELF
 
     @property
     def selfless(self) -> bool:
-        return len(self) == 3 and self[2] == EXCEPT_ITSELF
+        return len(self) == 1 and self[0] == EXCEPT_ITSELF
 
     def alt(self, position: Position) -> Targeting:
         if self.selfhood:
-            return Targeting([self[0], self[1], position[1]])
+            return Targeting(self.friendly, self.selective, position[1])
         elif self.selfless:
             others = list(range(ARENA_WIDTH))
             others.remove(position[1])
-            return Targeting([self[0], self[1], *others])
+            return Targeting(self.friendly, self.friendly, *others)
         else:
             return self
 
@@ -118,7 +125,7 @@ class Targeting(tuple[bool, bool, int, ...]):
         if not self.selective:
             return self
         else:
-            return Targeting([self[0], self[1], rand.choice(self[2:])])
+            return Targeting(self.friendly, self.selective, rand.choice(self))
 
     def choose(self, pos: int) -> Targeting:
         if pos >= ARENA_WIDTH:
@@ -126,7 +133,7 @@ class Targeting(tuple[bool, bool, int, ...]):
         if not self.selective:
             return self
         else:
-            return Targeting([self[0], self[1], pos])
+            return Targeting(self.friendly, self.selective, pos)
 
 
 # region Buffs
@@ -141,6 +148,7 @@ class Buff(FactorMixIn, ABC):
         self.duration = duration
 
     def after_affect(self, timing: Timing, **kw):
+        self.stack -= 1
         self.on_expire()
 
     def on_expire(self) -> NoReturn:
@@ -201,7 +209,7 @@ class Buffs(list[Buff]):
         return d
 
     def __repr__(self):
-        return self._group_by_name().values().__repr__()
+        return ",".join([f"{v}:{v.stack}" for v in self._group_by_name().values()])
 
 
 class BuffMixIn:
@@ -236,8 +244,16 @@ class StatusMixIn(metaclass=StatusMetaClass):
     def dead(self) -> bool:
         return self.cur_hp <= 0
 
-    def suffer(self, attack: Attack):
-        self.cur_hp -= int(attack.amount[0] * attack.mag)
+    def suffer(self, attack: Attack) -> NoReturn:
+        if attack.missed:
+            return
+        if not attack.critted:
+            attack.critted = game_random.random() < attack.crit
+        if attack.critted:
+            dmg = int(attack.min * attack.mag * 1.5)
+        else:
+            dmg = int(game_random.random(attack.min, attack.max) * attack.mag)
+        self.cur_hp -= dmg
 
     @property
     def hp(self) -> str:
@@ -256,7 +272,7 @@ class Attack:
         self.critted = critted
 
     def miss_check(self) -> bool:
-        self.missed = game_random.random() > self.acc
+        self.missed = game_random.random() < self.acc
         return self.missed
 
     def contains_kw(self, kw: str) -> bool:
@@ -273,6 +289,14 @@ class Attack:
     def set_kws(self, kws: list[str]):
         self.kw = '|'.join(kws)
 
+    @property
+    def min(self) -> int:
+        return self.amount[0]
+
+    @property
+    def max(self) -> int:
+        return self.amount[1]
+
 
 class CombatantMixIn(StatusMixIn, BuffMixIn):
     def __init__(self, cur_hp: int, max_hp: int, speed: int, buffs: Buffs = None):
@@ -283,52 +307,65 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
             self.buffs = buffs
 
     @abstractmethod
-    def factors(self, timing: Timing) -> tuple[FactorMixIn, ...]:
+    def factors(self, timing: Timing, **kw) -> tuple[FactorMixIn, ...]:
         pass
 
     def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], kw: str) -> NoReturn:
         if enemy is None or enemy.dead:
             return
         attack = Attack(amount, kw)
-        self.modify(Timing.Attack, attack=attack, enemy=enemy)
-        self.after_affect(Timing.Attack)
+        factors = self.modify(Timing.Attack, attack=attack, enemy=enemy, kw=kw)
+        self.after_affect(Timing.Attack, factors, attack=attack, enemy=enemy, kw=kw)
         attack.miss_check()
         if attack.missed:
             return
-        attack = enemy.defend(attack, self)
+        attack = enemy.defend(attack, self, kw)
         enemy.suffer(attack)
 
-    def defend(self, attack: Attack, enemy: CombatantMixIn) -> Attack:
-        self.modify(Timing.Defend, attack=attack, enemy=enemy)
-        self.after_affect(Timing.Defend)
+    def forge_attack(self, enemy: CombatantMixIn, amount: tuple[int, int], kw: str) -> Optional[Attack]:
+        if enemy is None or enemy.dead:
+            return
+        attack = Attack(amount, kw)
+        self.modify(Timing.Attack, attack=attack, enemy=enemy, kw=kw)
+        return attack
+
+    def defend(self, attack: Attack, enemy: CombatantMixIn, kw: str) -> Attack:
+        factors = self.modify(Timing.Defend, attack=attack, enemy=enemy, kw=kw)
+        self.after_affect(Timing.Defend, factors, attack=attack, enemy=enemy, kw=kw)
         return attack
 
     def moved(self, target: int):
-        self.modify(Timing.Move, target=target)
-        self.after_affect(Timing.Move)
+        factors = self.modify(Timing.Move, target=target)
+        self.after_affect(Timing.Move, factors, target=target)
 
     def move(self, target: int):
-        self.modify(Timing.Move, target=target)
+        factors = self.modify(Timing.Move, target=target)
         Arena.Instance.move(self, target)
-        self.after_affect(Timing.Move)
+        self.after_affect(Timing.Move, factors, target=target)
 
     def add_buff(self, buff: Buff):
-        self.modify(Timing.Buffed, buff=buff)
+        factors = self.modify(Timing.Buffed, buff=buff)
         self.buffs.add(buff)
-        self.after_affect(Timing.Buffed)
+        self.after_affect(Timing.Buffed, factors, buff=buff)
 
     def die(self):
         pass
 
-    def modify(self, timing: Timing, **kw):
-        for factor in self.factors(timing):
+    def modify(self, timing: Timing, **kw) -> Sequence[FactorMixIn]:
+        factors = self.factors(timing, **kw)
+        for factor in factors:
             factor.affect(timing, **kw)
+        return factors
 
-    def after_affect(self, timing: Timing):
-        for factor in self.factors(timing):
-            factor.after_affect(timing)
+    @staticmethod
+    def after_affect(timing: Timing, factors: Sequence[FactorMixIn], **kw) -> NoReturn:
+        for factor in factors:
+            factor.after_affect(timing, **kw)
 
     def heal(self, amount):
+        pass
+
+    def healed(self, amount):
         pass
 
     def find_target(self, target: Targeting) -> tuple[Optional[CombatantMixIn], ...]:
@@ -359,7 +396,7 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
         pass
 
 
-class Arena:
+class Arena(SingletonMixIn):
     Instance = None
 
     def __init__(self, left: list[Optional[CombatantMixIn], ...], right: list[Optional[CombatantMixIn], ...]):
@@ -426,6 +463,9 @@ class Arena:
             print(f"{combatant} decided to {decision}\n\n")
             combatant.execute(decision)
             self.clean_dead_in_order()
+            if self.is_over():
+                print("End")
+                break
 
     def find_position(self, combatant: CombatantMixIn) -> Position:
         if combatant in self.left:
@@ -450,14 +490,14 @@ class Arena:
         if target.selfhood:
             return (combatant,)
         elif target.selfless:
-            if pos[0]:
+            if pos.left:
                 return tuple(self.left[:pos[1]] + self.left[pos[1] + 1:])
             else:
                 return tuple(self.right[:pos[1]] + self.right[pos[1] + 1:])
 
-        friendly, selective = target[:2]
-        targets = target[2:]
-        if friendly ^ (pos[0]):
+        friendly, selective = target.friendly, target.selective
+        targets = target.positions
+        if friendly ^ (pos.left):
             candi = self.right  # -1 means combatant himself
             return tuple(find(candi, i) for i in targets)
         else:
@@ -495,7 +535,10 @@ class Arena:
         return self._round
 
     def is_over(self) -> bool:
-        pass
+        def is_none_or_dead(c: CombatantMixIn) -> bool:
+            return c is None or c.dead
+
+        return all(map(is_none_or_dead, self.left)) or all(map(is_none_or_dead, self.right))
 
 
 class Requirement(ABC):
@@ -557,6 +600,17 @@ class PosReqm(PostReqm):
         return f"Need Targeting: {self.target}"
 
 
+class DistanceLimitReqm(PostReqm):
+    def __init__(self, distance: int):
+        self.distance = distance
+
+    def check(self, receiver: CombatantMixIn, targeting: Optional[Targeting]) -> Targeting:
+        pos = receiver.position
+        tar = targeting.alt(pos)
+        poss = filter(lambda x: abs(x - pos[1]) <= self.distance, tar[2:])
+        return Targeting(tar[0], tar[1], *poss)
+
+
 class Action:
     def __init__(self, exe_reqm: tuple[PreReqm, ...], tar_reqm: tuple[PostReqm, ...],
                  effects: tuple[tuple[Targeting, Effect], ...]):
@@ -571,16 +625,16 @@ class Action:
         for req in self.tar_reqm:
             target = req.check(receiver, target)
             if target.none:
-                raise ValueError("No valid target")
+                raise TargetingError("No valid target")
         return target
 
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
         for tar_eff in self.effects:
             tar, eff = tar_eff
             if tar.selective and target is None:
-                raise ValueError("Selective target required")
+                raise TargetingError("Selective target required")
             if not tar.selective and target is not None:
-                raise ValueError("Aoe target not allowed")
+                raise TargetingError("Aoe target not allowed")
 
             if tar.selective:
                 tar = target
@@ -705,7 +759,6 @@ class EquipageMixIn:
 # endregion
 
 
-# region effects
 class Effect(ABC):
     def __init__(self):
         pass
@@ -713,53 +766,3 @@ class Effect(ABC):
     @abstractmethod
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
         pass
-
-
-class Heal(Effect):
-    def __init__(self, amount: tuple[int, int]):
-        super().__init__()
-        self.amount = amount
-
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
-        targets = receiver.find_target(target)
-        for aim in targets:
-            if aim is not None:
-                aim.heal(self.amount)
-
-
-class Damage(Effect):
-    def __init__(self, amount: tuple[int, int], keywords: str = None):
-        super().__init__()
-        self.amount = amount
-        self.keywords = keywords
-
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
-        targets = receiver.find_target(target)
-        for aim in targets:
-            if aim is not None:
-                receiver.attack(aim, self.amount, self.keywords)
-
-
-class MoveTo(Effect):
-    def __init__(self, distance: int):
-        super().__init__()
-        self.distance = distance
-
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
-        position = target[2]
-        if position < 0 or position > 5:
-            raise ValueError("Invalid position")
-        if receiver.index - position > self.distance:
-            raise ValueError("Too far")
-        receiver.move(position)
-
-
-class AddSelfBuff(Effect):
-    def __init__(self, buff: Buff):
-        super().__init__()
-        self.buff = buff
-
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
-        receiver.add_buff(self.buff)
-
-# endregion

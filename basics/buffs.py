@@ -21,6 +21,9 @@ class Dodge(PositiveBuff):
     def name(self) -> str:
         return "Dodge"
 
+    def __repr__(self):
+        return "D"
+
 
 class Strength(PositiveBuff):
     def may_affect(self, timing: Timing) -> bool:
@@ -37,3 +40,6 @@ class Strength(PositiveBuff):
     @property
     def name(self) -> str:
         return "Strength"
+
+    def __repr__(self):
+        return "S"

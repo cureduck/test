@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from .buffs import Strength
+from .buffs import *
 from .gameplay import *
-
+from .effects import *
 
 class Bash(Action):
     """
@@ -15,7 +15,7 @@ class Bash(Action):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
             (),
-            ((Targeting([False, False, 1, 2]), Damage((10, 15))),)
+            ((Targeting(False, False, 1, 2), Damage((10, 15))),)
         )
 
 
@@ -29,8 +29,8 @@ class Slash(Action):
     def __init__(self):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            (PosReqm(Targeting([False, True, 1, 2])),),
-            ((Targeting([False, True, 1, 2]), Damage((15, 20))),)
+            (PosReqm(Targeting(False, True, 1, 2)),),
+            ((Targeting(False, True, 1, 2), Damage((15, 20))),)
         )
 
 
@@ -45,10 +45,10 @@ class Bite(Action):
         super().__init__(
             (
                 SelfPositionalRequirement(Position([True, 0, 1, 2])),
-                ValidTargetRequirement(Targeting([False, True, 0, 1, 2]))
+                ValidTargetRequirement(Targeting(False, True, 0, 1, 2))
             ),
-            (PosReqm(Targeting([False, True, 0, 1, 2])),),
-            ((Targeting([False, True, 0, 1, 2]), Damage((4, 7))),)
+            (PosReqm(Targeting(False, True, 0, 1, 2)),),
+            ((Targeting(False, True, 0, 1, 2), Damage((4, 7))),)
         )
 
 
@@ -61,7 +61,7 @@ class Defend(Action):
         super().__init__(
             (),
             (),
-            ((Targeting([True, False, ITSELF]), AddSelfBuff(Strength())),)
+            ((Targeting(True, False, ITSELF), AddSelfBuff(Strength())),)
         )
 
 
@@ -74,8 +74,8 @@ class Move(Action):
     def __init__(self, distance: int):
         super().__init__(
             (),
-            (PosReqm(Targeting([True, True, EXCEPT_ITSELF])),),
-            ((Targeting([True, True, EXCEPT_ITSELF]), MoveTo(distance)),)
+            (PosReqm(Targeting(True, True, EXCEPT_ITSELF)), DistanceLimitReqm(distance)),
+            ((Targeting(True, True, EXCEPT_ITSELF), MoveTo(distance)),)
         )
 
 
@@ -83,6 +83,6 @@ class Skip(Action):
     def __init__(self):
         super().__init__(
             (),
-            (PosReqm(Targeting([True, True, ITSELF])),),
+            (),
             ()
         )
