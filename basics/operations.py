@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .buffs import *
 from .effects import *
-
+from .reqirements import *
 
 class Bash(Action):
     """
@@ -29,7 +29,10 @@ class Slash(Action):
     def __init__(self):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            (PosReqm(Targeting(False, True, 1, 2)),),
+            (
+                PosReqm(Targeting(False, True, 1, 2)),
+                TargetAliveReqm()
+            ),
             ((Targeting(False, True, 1, 2), Damage((15, 20))),)
         )
 

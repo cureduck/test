@@ -4,11 +4,11 @@ from abc import abstractmethod, ABC
 from enum import Enum, IntFlag
 from functools import singledispatchmethod
 from random import Random
-from typing import Optional, NoReturn, Sequence, Any
+from typing import Optional, NoReturn, Sequence, Any, Callable
 
+from .KEYWORDS import *
 from .rand import *
 from .singleton import *
-from .KEYWORDS import *
 
 ARENA_WIDTH = 4
 
@@ -83,7 +83,7 @@ class Targeting:
     def __index__(self):
         return self.positions
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> int:
         return self.positions[item]
 
     def __sizeof__(self):
@@ -250,7 +250,7 @@ class StatusMixIn(metaclass=StatusMetaClass):
         if attack.critted:
             dmg = int(attack.min * attack.mag * 1.5)
         else:
-            dmg = int(game_random.random(attack.min, attack.max) * attack.mag)
+            dmg = int(game_random.randint(attack.min, attack.max) * attack.mag)
         self.cur_hp -= dmg
 
     @property
@@ -264,7 +264,6 @@ class Attack:
         """
 
         @param amount: min and max damage
-        @param kw: keyword
         @param mag: magnification, 1 means normal, 0 means no damage, 2 means double damage
         @param acc: chance to hit, 0 means can't hit, between 0 and 1 means can hit
         @param crit: chance to crit, 0 means can't crit, between 0 and 1 means can crit
@@ -279,7 +278,7 @@ class Attack:
         self.critted = critted
 
     def miss_check(self) -> bool:
-        self.missed = game_random.random() < self.acc
+        self.missed = game_random.random() > self.acc
         return self.missed
 
     @property
@@ -337,7 +336,7 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
 
     def move(self, target: int):
         factors = self.modify(Timing.Move, target=target)
-        Arena.Instance.move(self, target)
+        Arena().move(self, target)
         self.after_affect(Timing.Move, factors, target=target)
 
     def add_buff(self, buff: Buff, **kw):
@@ -362,16 +361,17 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
     def heal(self, amount, **passed):
         pass
 
-    def find_target(self, target: Targeting) -> tuple[Optional[CombatantMixIn], ...]:
-        return Arena.Instance.find_target(self, target)
+    def find_target(self, target: Targeting, term: Callable[[CombatantMixIn], bool] = None) -> \
+            Sequence[Optional[CombatantMixIn], ...]:
+        return Arena().find_target(self, target, term)
 
     @property
     def index(self) -> int:
-        return Arena.Instance.find_index(self)
+        return Arena().find_index(self)
 
     @property
     def position(self) -> Position:
-        return Arena.Instance.find_position(self)
+        return Arena().find_position(self)
 
     def take(self, action: Action, target: Optional[Targeting]):
         action.execute(self, target)
@@ -391,9 +391,15 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
 
 
 class Arena(SingletonMixIn):
-    Instance = None
-
-    def __init__(self, left: list[Optional[CombatantMixIn], ...], right: list[Optional[CombatantMixIn], ...]):
+    def __init__(self, left: list[Optional[CombatantMixIn], ...] = None,
+                 right: list[Optional[CombatantMixIn], ...] = None):
+        """
+        create a new arena or load from the previous one if left and right are None.
+        @param left:
+        @param right:
+        """
+        if left is None and right is None:
+            return
         self._current = None
         self._round = 0
         self.left = left
@@ -475,28 +481,34 @@ class Arena(SingletonMixIn):
             return self.right.index(combatant)
         raise ValueError("Combatant not in arena")
 
-    def find_target(self, combatant: CombatantMixIn, target: Targeting) -> tuple[Optional[CombatantMixIn], ...]:
-        def find(li: list[CombatantMixIn], index: int):
-            return li[index] if index != -1 else combatant
+    def find_target(self, combatant: CombatantMixIn, target: Targeting,
+                    term: Callable[[CombatantMixIn], bool] = None) -> Sequence[Optional[CombatantMixIn], ...]:
+        def find(li: list[CombatantMixIn], index: int) -> Optional[CombatantMixIn]:
+            return li[index]
 
         pos = self.find_position(combatant)
 
         if target.selfhood:
-            return (combatant,)
+            candidates = [combatant]
         elif target.selfless:
             if pos.left:
-                return tuple(self.left[:pos[1]] + self.left[pos[1] + 1:])
+                candidates = self.left[:pos[1]] + self.left[pos[1] + 1:]
             else:
-                return tuple(self.right[:pos[1]] + self.right[pos[1] + 1:])
-
-        friendly, selective = target.friendly, target.selective
-        targets = target.positions
-        if friendly ^ pos.left:
-            candi = self.right  # -1 means combatant himself
-            return tuple(find(candi, i) for i in targets)
+                candidates = self.right[:pos[1]] + self.right[pos[1] + 1:]
         else:
-            candi = self.left
-            return tuple(find(candi, i) for i in targets)
+            friendly, selective = target.friendly, target.selective
+            targets = target.positions
+            if friendly ^ pos.left:
+                candi = self.right  # -1 means combatant himself
+                candidates = [find(candi, i) for i in targets]
+            else:
+                candi = self.left
+                candidates = [find(candi, i) for i in targets]
+        if term is not None:
+            candidates = list(filter(term, candidates))
+            return candidates
+        else:
+            return candidates
 
     def get_action_order(self) -> list[CombatantMixIn]:
         def not_none(c: CombatantMixIn) -> bool:
@@ -551,58 +563,11 @@ class PostReqm(Requirement, ABC):
     def check(self, receiver: CombatantMixIn, targeting: Optional[Targeting]) -> Targeting:
         """
         filter out invalid targets
-        @param receiver:
+        @param receiver: the combatant who is executing the action
         @param targeting:
         @return:
         """
         pass
-
-
-class SelfPositionalRequirement(PreReqm):
-    def __init__(self, position: Position):
-        self.position = position
-
-    def check(self, receiver: CombatantMixIn) -> bool:
-        return self.position.include(receiver.index)
-
-    def __repr__(self):
-        return f"Need Self Position: {self.position}"
-
-
-class ValidTargetRequirement(PreReqm):
-    def __init__(self, target: Targeting):
-        self.target = target
-
-    def check(self, receiver: CombatantMixIn) -> bool:
-        return any([x is not None for x in receiver.find_target(self.target)])
-
-    def __repr__(self):
-        return f"Need Valid Target: {self.target}"
-
-
-class PosReqm(PostReqm):
-    def __init__(self, target: Targeting):
-        self.target = target
-
-    def check(self, receiver: CombatantMixIn, targeting: Optional[Targeting]) -> Targeting:
-        if targeting is None:
-            return self.target.alt(receiver.position)
-        else:
-            return targeting
-
-    def __repr__(self):
-        return f"Need Targeting: {self.target}"
-
-
-class DistanceLimitReqm(PostReqm):
-    def __init__(self, distance: int):
-        self.distance = distance
-
-    def check(self, receiver: CombatantMixIn, targeting: Optional[Targeting]) -> Targeting:
-        pos = receiver.position
-        tar = targeting.alt(pos)
-        poss = filter(lambda x: abs(x - pos[1]) <= self.distance, tar[2:])
-        return Targeting(tar[0], tar[1], *poss)
 
 
 class Action:

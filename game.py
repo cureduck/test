@@ -13,11 +13,12 @@ e = WildDog("e")
 f = WildDog("f")
 g = WildDog("g")
 
-Arena.Instance = Arena([a, b, c, d], [e, f, None, g])
+Arena([a, b, c, d], [e, f, None, g])
 
 # a.get_actions()
 # print(a.position)
 # a_decision = (a.get_actions()[0], Targeting([False, False, 2]))
+
 # if a.get_actions()[0].check(a):
 #     a.take(a.get_actions()[0], None)  # a takes Slash
 
@@ -26,10 +27,10 @@ Arena.Instance = Arena([a, b, c, d], [e, f, None, g])
 # # e.take(e.get_actions()[0], target=Targeting([False, False, 2]))
 # e.execute(decision)
 
-Arena.Instance.start()
+Arena().start()
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(Arena.Instance.run())
+loop.run_until_complete(Arena().run())
 loop.close()
 
 # while True:

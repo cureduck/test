@@ -3,4 +3,4 @@ from .equipments import *
 from .character import *
 from .operations import *
 from .buffs import *
-from .input import *
+from .effects import *

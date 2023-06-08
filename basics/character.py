@@ -38,9 +38,15 @@ class PlayerBrain(Brain):
                 action = actions[action_index]
                 if action.tar_reqm in (None, ()):
                     return Decision([action, None])
+                legal_targets = action.check_target(caster)
+                print(f"legal targets: {legal_targets}")
                 target_index = int(input("choose target:"))
-                targeting = action.check_target(caster).choose(target_index)
-                return Decision([action, targeting])
+                if target_index in legal_targets:
+                    targeting = action.check_target(caster).choose(target_index)
+                    return Decision([action, targeting])
+                else:
+                    print("target index out of range, try again")
+                    continue
             except IndexError:
                 print("action index out of range, try again")
                 continue
@@ -94,7 +100,7 @@ player_brain = PlayerBrain()
 
 class Character(CombatantMixIn, EquipageMixIn):
     async def get_decision(self) -> Decision:
-        return await player_brain.decide(self, Arena.Instance)
+        return await player_brain.decide(self, Arena())
 
     def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
         return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs + self.equipage.factors))
@@ -129,7 +135,7 @@ class Monster(CombatantMixIn):
         pass
 
     async def get_decision(self) -> Decision:
-        return monster_brain.decide(self, Arena.Instance)
+        return monster_brain.decide(self, Arena())
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.name} {self.hp} {self.buffs}"
