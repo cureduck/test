@@ -4,6 +4,7 @@ from .buffs import *
 from .effects import *
 from .reqirements import *
 
+
 class Bash(Action):
     """
     A simple attack.
@@ -14,8 +15,8 @@ class Bash(Action):
     def __init__(self):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            (),
-            ((Targeting(False, False, 1, 2), Damage((10, 15), IGNORE_EVADE=True)),)
+            (PosReqm(Targeting(False, False, 2, 3)), TargetAliveReqm(),),
+            ((Targeting(False, False, 2, 3), Damage((10, 15), IGNORE_EVADE=True)),)
         )
 
 
@@ -30,7 +31,7 @@ class Slash(Action):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
             (
-                PosReqm(Targeting(False, True, 1, 2)),
+                PosReqm(Targeting(False, True, 0, 1, 2)),
                 TargetAliveReqm()
             ),
             ((Targeting(False, True, 1, 2), Damage((15, 20))),)
@@ -51,7 +52,7 @@ class Bite(Action):
                 ValidTargetRequirement(Targeting(False, True, 0, 1, 2))
             ),
             (PosReqm(Targeting(False, True, 0, 1, 2)),),
-            ((Targeting(False, True, 0, 1, 2), Damage((4, 7))),)
+            ((Targeting(False, True, 0, 1, 2), Damage((4, 11))),)
         )
 
 

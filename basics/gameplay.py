@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod, ABC
-from enum import Enum, IntFlag
+from enum import Enum
 from functools import singledispatchmethod
 from random import Random
 from typing import Optional, NoReturn, Sequence, Any, Callable
@@ -9,16 +9,9 @@ from typing import Optional, NoReturn, Sequence, Any, Callable
 from .KEYWORDS import *
 from .rand import *
 from .singleton import *
+from .timing import *
 
 ARENA_WIDTH = 4
-
-
-class Timing(IntFlag):
-    Healing = 0b000001
-    Attack = 0b000010
-    Defend = 0b000100
-    Move = 0b001000
-    Buffed = 0b010000
 
 
 class FactorMixIn:
@@ -94,8 +87,9 @@ class Targeting:
 
     def __repr__(self):
         friendly = "ally" if self.friendly else "enemy"
-        selective = "selective" if self.selective else "aoe"
-        return f"Targeting({friendly}, {selective}, {self.positions})"
+        selective = "single" if self.selective else "aoe"
+        pos = ",".join([str(x) for x in self.positions])
+        return f"{friendly}, {selective}, {pos}"
 
     @property
     def none(self) -> bool:
@@ -210,52 +204,23 @@ class Buffs(list[Buff]):
         return ",".join([f"{v}:{v.stack}" for v in self._group_by_name().values()])
 
 
-class BuffMixIn:
-    def __init__(self, *args: Buff):
-        self.buffs = Buffs(*args)
+# class BuffMixIn:
+#     def __init__(self, *args: Buff):
+#         self.buffs = Buffs(*args)
 
 
 # endregion
 
 
-class StatusMetaClass(type):
-    def __new__(cls, name, bases, attrs):
-        """
-        Add slots and to the class.
-        """
-        slots = attrs.get("__slots__", ())
-        if slots != ():
-            slots += ("cur_hp", "max_hp", "cur_mp", "speed")
-            attrs["__slots__"] = slots
-        return super().__new__(cls, name, bases, attrs)
-
-
-class StatusMixIn(metaclass=StatusMetaClass):
-    __slots__ = ("cur_hp", "max_hp", "speed")
-
-    def __init__(self, cur_hp: int, max_hp: int, speed: int):
-        self.cur_hp = cur_hp
-        self.max_hp = max_hp
-        self.speed = speed
-
-    @property
-    def dead(self) -> bool:
-        return self.cur_hp <= 0
-
-    def suffer(self, attack: Attack) -> NoReturn:
-        if attack.missed:
-            return
-        if attack.critted is None:
-            attack.critted = game_random.random() < attack.crit
-        if attack.critted:
-            dmg = int(attack.min * attack.mag * 1.5)
-        else:
-            dmg = int(game_random.randint(attack.min, attack.max) * attack.mag)
-        self.cur_hp -= dmg
-
-    @property
-    def hp(self) -> str:
-        return f"{self.cur_hp}/{self.max_hp}"
+# class StatusMixIn:
+#     def __init__(self, name, cur_hp: int, base_max_hp: int, base_speed: int):
+#         self.name = name
+#         self.cur_hp = cur_hp
+#         self.base_max_hp = base_max_hp
+#         self.base_speed = base_speed
+#
+#         self._cache_max_hp = None
+#         self._cache_speed = None
 
 
 class Attack:
@@ -290,16 +255,61 @@ class Attack:
         return self.amount[1]
 
 
-class CombatantMixIn(StatusMixIn, BuffMixIn):
-    def __init__(self, cur_hp: int, max_hp: int, speed: int, buffs: Buffs = None):
-        super().__init__(cur_hp, max_hp, speed)
-        if buffs is None:
-            self.buffs = Buffs()
+class CombatantMixIn(ABC):
+    def __init__(self, name: str, cur_hp: int, base_max_hp: int, base_speed: int, buffs: Buffs = None):
+        self.name = name
+        self.cur_hp = cur_hp
+        self.base_max_hp = base_max_hp
+        self.base_speed = base_speed
+        self.buffs = buffs or Buffs()
+
+        self._cache_max_hp = None
+        self._cache_speed = None
+
+    def _set(self):
+        self._cache_max_hp = self.base_max_hp
+        self._cache_speed = self.base_speed
+        kwargs = {THIS: self}
+        self.modify(timing=Timing.GetMaxHp, **kwargs)
+        self.modify(timing=Timing.GetSpeed, **kwargs)
+
+    @property
+    def dead(self) -> bool:
+        return self.cur_hp <= 0
+
+    def suffer(self, attack: Attack) -> NoReturn:
+        if attack.missed:
+            print(f"{self.name} missed")
+            return
+        if attack.critted is None:
+            attack.critted = game_random.random() < attack.crit
+        if attack.critted:
+            dmg = int(attack.min * attack.mag * 1.5)
         else:
-            self.buffs = buffs
+            dmg = int(game_random.randint(attack.min, attack.max) * attack.mag)
+        self.cur_hp -= dmg
+        print(f"{self.name} suffer {dmg} damage, {self.hp} left")
+
+    @property
+    def max_hp(self) -> int:
+        if self._cache_max_hp is None:
+            self._cache_max_hp = self.base_max_hp
+            self._set()
+        return self._cache_max_hp
+
+    @property
+    def speed(self) -> int:
+        if self._cache_speed is None:
+            self._cache_speed = self.base_speed
+            self._set()
+        return self._cache_speed
+
+    @property
+    def hp(self) -> str:
+        return f"{self.cur_hp}/{self.max_hp}"
 
     @abstractmethod
-    def factors(self, timing: Timing, **kw) -> tuple[FactorMixIn, ...]:
+    def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
         pass
 
     def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], **passed) -> Optional[dict[str, Any]]:
@@ -315,34 +325,37 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
         attack = Attack(amount)
         attack.missed = passed.get(MISSED, None)
         attack.critted = passed.get(CRITTED, None)
-        factors = self.modify(Timing.Attack, attack=attack, enemy=enemy, **passed)
-        self.after_affect(Timing.Attack, factors, attack=attack, enemy=enemy, **passed)
+        kws = {ATTACK: attack, ENEMY: enemy}
+        factors = self.modify(Timing.Attack, **kws, **passed)
+        self.after_affect(Timing.Attack, factors, **kws, **passed)
         if attack.missed is None:
-            attack.miss_check()
-        if attack.missed:
-            passed[MISSED] = True
+            passed[MISSED] = attack.miss_check()
         attack = enemy.defend(attack, self, **passed)
         enemy.suffer(attack)
         return passed
 
     def defend(self, attack: Attack, enemy: CombatantMixIn, **passed) -> Attack:
-        factors = self.modify(Timing.Defend, attack=attack, enemy=enemy, **passed)
-        self.after_affect(Timing.Defend, factors, attack=attack, enemy=enemy, **passed)
+        kws = {ATTACK: attack, ENEMY: enemy}
+        factors = self.modify(Timing.Defend, **kws, **passed)
+        self.after_affect(Timing.Defend, factors, **kws, **passed)
         return attack
 
     def moved(self, target: int):
-        factors = self.modify(Timing.Move, target=target)
-        self.after_affect(Timing.Move, factors, target=target)
+        kws = {TARGET: target}
+        factors = self.modify(Timing.Move, **kws)
+        self.after_affect(Timing.Move, factors, **kws)
 
     def move(self, target: int):
-        factors = self.modify(Timing.Move, target=target)
+        kws = {TARGET: target}
+        factors = self.modify(Timing.Move, **kws)
         Arena().move(self, target)
-        self.after_affect(Timing.Move, factors, target=target)
+        self.after_affect(Timing.Move, factors, **kws)
 
-    def add_buff(self, buff: Buff, **kw):
-        factors = self.modify(Timing.Buffed, buff=buff, **kw)
+    def add_buff(self, buff: Buff, **passed):
+        kws = {BUFF: buff}
+        factors = self.modify(Timing.Buffed, **kws, **passed)
         self.buffs.add(buff)
-        self.after_affect(Timing.Buffed, factors, buff=buff, **kw)
+        self.after_affect(Timing.Buffed, factors, **kws, **passed)
 
     def die(self):
         pass
@@ -388,6 +401,13 @@ class CombatantMixIn(StatusMixIn, BuffMixIn):
     @abstractmethod
     async def get_decision(self) -> Decision:
         pass
+
+    def __repr__(self):
+        return f"{self.name} {self.hp} {self.buffs}"
+
+    @max_hp.setter
+    def max_hp(self, value):
+        self._cache_max_hp = value
 
 
 class Arena(SingletonMixIn):
@@ -439,10 +459,18 @@ class Arena(SingletonMixIn):
         return '\n'.join([f"{i}: {action}" for i, action in enumerate(self.get_current_actions())])
 
     def get_arena_info(self) -> str:
+        def get_info(combatant: Optional[CombatantMixIn]):
+            if combatant is None:
+                return "None".ljust(30, ' ')
+            else:
+                if combatant.dead:
+                    return f"{combatant} (dead)".ljust(30, '-')
+                else:
+                    return f"{combatant}".ljust(30, ' ')
+
         return f"Round {self._round}\n" \
-               f"Left: {[combatant for combatant in self.left]}\n" \
-               f"Right: {[combatant for combatant in self.right]}\n" \
-               f"Current: {self.current}"
+               f"Left : {[get_info(combatant) for combatant in self.left]}\n" \
+               f"Right: {[get_info(combatant) for combatant in self.right]}\n"
 
     async def run(self):
         while True:
@@ -451,16 +479,15 @@ class Arena(SingletonMixIn):
                 self._round += 1
             combatant = self.action_order.pop(-1)
             self._current = combatant
+            print(f"{combatant}".ljust(143, '-'))
             if combatant.dead or combatant not in self.left and combatant not in self.right:
                 continue
             if combatant in self.left:
                 print(self.get_arena_info())
-                print("order:" + self.action_order.__str__())
-                print()
                 print(self.get_current_actions_description())
 
             decision = await combatant.get_decision()
-            print(f"{combatant} decided to {decision}\n\n")
+            print(f"{combatant} decided to {decision}\n")
             combatant.execute(decision)
             self.clean_dead_in_order()
             if self.is_over():
@@ -514,7 +541,7 @@ class Arena(SingletonMixIn):
         def not_none(c: CombatantMixIn) -> bool:
             return c is not None and not c.dead
 
-        return sorted(filter(not_none, self.left + self.right), key=lambda c: c.speed, reverse=True)
+        return sorted(filter(not_none, self.left + self.right), key=lambda c: c.base_speed, reverse=True)
 
     def start(self):
         self.action_order = self.get_action_order()
@@ -609,7 +636,10 @@ class Action:
 
 class Decision(tuple[Optional[Action], Optional[Targeting]]):
     def __repr__(self):
-        return f"{self[0]} on {self[1]}"
+        if self[1] is None:
+            return f"{self[0]}"
+        else:
+            return f"{self[0]} on {self[1]}"
 
 
 # Decision = tuple[Optional[Action], Optional[Targeting]]

@@ -22,6 +22,8 @@ class Shield(OffHand):
     def may_affect(self, timing: Timing, **kw) -> bool:
         if timing == Timing.Defend:
             return True
+        if timing == Timing.GetMaxHp:
+            return True
         return False
 
     def affect(self, timing: Timing, **kw: dict[str, Union[Character, Attack]]):
@@ -29,3 +31,9 @@ class Shield(OffHand):
             attack = kw[ATTACK]
             assert isinstance(attack, Attack)
             attack.crit /= 2
+        elif timing == Timing.GetMaxHp:
+            this = kw[THIS]
+            assert isinstance(this, CombatantMixIn)
+            this.max_hp += int(this.base_max_hp * 0.2)
+
+

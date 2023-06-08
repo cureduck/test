@@ -39,14 +39,20 @@ class PlayerBrain(Brain):
                 if action.tar_reqm in (None, ()):
                     return Decision([action, None])
                 legal_targets = action.check_target(caster)
-                print(f"legal targets: {legal_targets}")
-                target_index = int(input("choose target:"))
-                if target_index in legal_targets:
-                    targeting = action.check_target(caster).choose(target_index)
-                    return Decision([action, targeting])
-                else:
-                    print("target index out of range, try again")
+                if len(legal_targets) == 0:
+                    print("no legal target")
                     continue
+                print(f"legal targets: {legal_targets}")
+                if legal_targets.selective:
+                    target_index = int(input("choose target:"))
+                    if target_index in legal_targets:
+                        targeting = legal_targets.choose(target_index)
+                        return Decision([action, targeting])
+                    else:
+                        print("target index out of range, try again")
+                        continue
+                else:
+                    return Decision([action, None])
             except IndexError:
                 print("action index out of range, try again")
                 continue
@@ -105,16 +111,13 @@ class Character(CombatantMixIn, EquipageMixIn):
     def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
         return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs + self.equipage.factors))
 
-    def __init__(self, name: str, cur_hp: int, max_hp: int, speed: int, buffs: Buffs = None, *equipment: Equipment):
-        CombatantMixIn.__init__(self, cur_hp, max_hp, speed, buffs)
+    def __init__(self, name: str, cur_hp: int, base_max_hp: int, base_speed: int, buffs: Buffs = None,
+                 *equipment: Equipment):
+        CombatantMixIn.__init__(self, name, cur_hp, base_max_hp, base_speed, buffs)
         EquipageMixIn.__init__(self, *equipment)
-        self.name = name
 
     def get_actions(self) -> tuple[Action, ...]:
         return self.equipage.get_actions() + self.basic_actions()
-
-    def __repr__(self):
-        return f"{self.name} {self.hp} {self.buffs}"
 
     @staticmethod
     def basic_actions() -> tuple[Action, ...]:
@@ -125,9 +128,8 @@ class Monster(CombatantMixIn):
     def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
         return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs))
 
-    def __init__(self, name: str, cur_hp: int, max_hp: int, speed: int, buffs: Buffs = None):
-        CombatantMixIn.__init__(self, cur_hp, max_hp, speed, buffs)
-        self.name = name
+    def __init__(self, name: str, cur_hp: int, base_max_hp: int, base_speed: int, buffs: Buffs = None):
+        CombatantMixIn.__init__(self, name, cur_hp, base_max_hp, base_speed, buffs)
 
     @property
     @abstractmethod
@@ -136,9 +138,6 @@ class Monster(CombatantMixIn):
 
     async def get_decision(self) -> Decision:
         return monster_brain.decide(self, Arena())
-
-    def __repr__(self):
-        return f"{self.__class__.__name__} {self.name} {self.hp} {self.buffs}"
 
 
 # endregion
@@ -150,9 +149,9 @@ class WildDog(Monster):
     def preference(self) -> tuple[str, ...]:
         return ()
 
-    def __init__(self, name: str, cur_hp: int = 24, max_hp: int = 24, speed: int = 9):
-        super().__init__(name, cur_hp, max_hp, speed)
+    def __init__(self, name: str, cur_hp: int = 24, base_max_hp: int = 24, base_speed: int = 9):
+        super().__init__(name, cur_hp, base_max_hp, base_speed)
         self.buffs = Buffs(Dodge())
 
     def get_actions(self) -> (Action, ...):
-        return Bite(), Move(1)
+        return (Bite(),)

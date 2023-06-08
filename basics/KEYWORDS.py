@@ -4,6 +4,8 @@ ENEMY = "enemy"  # combatant
 ATTACK = "attack"  # attack
 IGNORE_EVADE = "ignore_evade"  # bool
 IGNORE_BLOCK = "ignore_block"  # bool
-PLAYER = "player"  # combatant
-
-
+SPEED = "speed"  # int
+MAX_HP = "max_hp"  # int
+THIS = "this"  # combatant
+TARGET = "target"  # int
+BUFF = "buff"  # buff

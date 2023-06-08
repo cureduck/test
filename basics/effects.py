@@ -26,7 +26,8 @@ class Damage(Effect):
         for aim in targets:
             if aim is not None:
                 passed.update(self.passing)
-                return receiver.attack(aim, self.amount, **passed)
+                receiver.attack(aim, self.amount, **passed)
+        return passed
 
 
 class MoveTo(Effect):

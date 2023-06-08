@@ -16,10 +16,9 @@ class Dodge(PositiveBuff):
             attack = kw[ATTACK]
             assert isinstance(attack, Attack)
             if kw.get(IGNORE_EVADE, False):
-                print("cant dodge this attack!")
+                pass
             else:
                 attack.acc /= 2
-                print("dodge the attack!")
 
     @property
     def name(self) -> str:
