@@ -16,7 +16,7 @@ class Bash(Action):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
             (PosReqm(Targeting(False, False, 2, 3)), TargetAliveReqm(),),
-            ((Targeting(False, False, 2, 3), Damage((10, 15), IGNORE_EVADE=True)),)
+            ((Targeting(False, False, 2, 3), Damage((10, 15), {IGNORE_EVADE: True})),)
         )
 
 

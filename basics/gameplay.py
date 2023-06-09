@@ -275,7 +275,7 @@ class CombatantMixIn(ABC):
     def _set_max_hp(self):
         self.cache_max_hp = self.base_max_hp
         kwargs = {THIS: self}
-        self.modify(timing=Timing.GetMaxHp, **kwargs)
+        self.modify(timing=Timing.GetMaxHp, baton=kwargs)
 
     @property
     def dead(self) -> bool:
@@ -312,34 +312,34 @@ class CombatantMixIn(ABC):
     def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
         pass
 
-    def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], **passed) -> Optional[dict[str, Any]]:
+    def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], baton: dict[str, Any]) -> None:
         """
         Attack the enemy.
         @param enemy:
         @param amount:
-        @param passed: passed to factors
+        @param baton: passed to factors
         @return:
         """
         if enemy is None or enemy.dead:
-            return passed
+            return
         attack = Attack(amount)
-        attack.missed = passed.get(MISSED, None)
-        attack.critted = passed.get(CRITTED, None)
+        attack.missed = baton.get(MISSED, None)
+        attack.critted = baton.get(CRITTED, None)
         kws = {ATTACK: attack, ENEMY: enemy}
-        factors = self.modify(Timing.Attack, **kws, **passed)
-        self.after_affect(Timing.Attack, factors, **kws, **passed)
+        factors = self.modify(Timing.Attack, baton, **kws)
+        self.after_affect(Timing.Attack, factors, baton, **kws)
         if attack.missed is None:
-            passed[MISSED] = attack.miss_check()
-        attack = enemy.defend(attack, self, **passed)
+            baton[MISSED] = attack.miss_check()
+        attack = enemy.defend(attack, self, baton)
         if attack.missed is False:
-            passed[MISSED] = attack.miss_check()
+            baton[MISSED] = attack.miss_check()
         enemy.suffer(attack)
-        return passed
+        return
 
-    def defend(self, attack: Attack, enemy: CombatantMixIn, **passed) -> Attack:
+    def defend(self, attack: Attack, enemy: CombatantMixIn, baton: dict[str, Any]) -> Attack:
         kws = {ATTACK: attack, ENEMY: enemy}
-        factors = self.modify(Timing.Defend, **kws, **passed)
-        self.after_affect(Timing.Defend, factors, **kws, **passed)
+        factors = self.modify(Timing.Defend, baton, **kws)
+        self.after_affect(Timing.Defend, factors, baton, **kws)
         return attack
 
     def moved(self, target: int):
@@ -353,27 +353,27 @@ class CombatantMixIn(ABC):
         Arena().move(self, target)
         self.after_affect(Timing.Move, factors, **kws)
 
-    def add_buff(self, buff: Buff, **passed):
+    def add_buff(self, buff: Buff, baton):
         kws = {BUFF: buff}
-        factors = self.modify(Timing.Buffed, **kws, **passed)
+        factors = self.modify(Timing.Buffed, baton, **kws)
         self.buffs.add(buff)
-        self.after_affect(Timing.Buffed, factors, **kws, **passed)
+        self.after_affect(Timing.Buffed, factors, baton, **kws)
 
     def die(self):
         pass
 
-    def modify(self, timing: Timing, **kw) -> Sequence[FactorMixIn]:
-        factors = self.factors(timing, **kw)
+    def modify(self, timing: Timing, baton: dict[str, Any], **kw) -> Sequence[FactorMixIn]:
+        factors = self.factors(timing, **baton, **kw)
         for factor in factors:
-            factor.affect(timing, **kw)
+            factor.affect(timing, **baton, **kw)
         return factors
 
     @staticmethod
-    def after_affect(timing: Timing, factors: Sequence[FactorMixIn], **kw) -> NoReturn:
+    def after_affect(timing: Timing, factors: Sequence[FactorMixIn], baton: dict[str, Any], **kw) -> NoReturn:
         for factor in factors:
-            factor.after_affect(timing, **kw)
+            factor.after_affect(timing, **baton, **kw)
 
-    def heal(self, amount, **passed):
+    def heal(self, amount, baton):
         pass
 
     def find_target(self, target: Targeting, term: Callable[[CombatantMixIn], bool] = None) -> \
@@ -617,7 +617,7 @@ class Action:
         return target
 
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
-        result = None
+        baton = dict()
         for tar_eff in self.effects:
             tar, eff = tar_eff
             if tar.selective and target is None:
@@ -627,10 +627,7 @@ class Action:
 
             if tar.selective:
                 tar = target
-            if result is None:
-                result = eff.execute(receiver, tar)
-            else:
-                result = eff.execute(receiver, tar, **result)
+            eff.execute(receiver, tar, baton)
 
     def __repr__(self):
         return f"{self.__class__.__name__}"
@@ -759,12 +756,12 @@ class Effect(ABC):
         pass
 
     @abstractmethod
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], **passed: dict) -> dict:
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton: dict[str, Any]) -> dict:
         """
 
         @param receiver:
         @param target:
-        @param passed: the keywords passed from previous effect
+        @param baton: the keywords passed from previous effect
         @return:
         """
         pass
