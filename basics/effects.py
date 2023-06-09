@@ -53,3 +53,4 @@ class AddSelfBuff(Effect):
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], **passed) -> Optional[dict[str, Any]]:
         receiver.add_buff(self.buff, **passed)
         return passed
+

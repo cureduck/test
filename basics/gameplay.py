@@ -14,7 +14,7 @@ from .timing import *
 ARENA_WIDTH = 4
 
 
-class FactorMixIn:
+class FactorMixIn(ABC):
     def affect(self, timing: Timing, **kw) -> NoReturn:
         pass
 
@@ -244,6 +244,7 @@ class Attack:
 
     def miss_check(self) -> bool:
         self.missed = game_random.random() > self.acc
+        self.acc = 1.0
         return self.missed
 
     @property
@@ -263,15 +264,18 @@ class CombatantMixIn(ABC):
         self.base_speed = base_speed
         self.buffs = buffs or Buffs()
 
-        self._cache_max_hp = None
-        self._cache_speed = None
+        self.cache_max_hp = None
+        self.cache_speed = None
 
-    def _set(self):
-        self._cache_max_hp = self.base_max_hp
-        self._cache_speed = self.base_speed
+    def _set_speed(self):
+        self.cache_speed = self.base_speed
+        kwargs = {THIS: self}
+        self.modify(timing=Timing.GetSpeed, **kwargs)
+
+    def _set_max_hp(self):
+        self.cache_max_hp = self.base_max_hp
         kwargs = {THIS: self}
         self.modify(timing=Timing.GetMaxHp, **kwargs)
-        self.modify(timing=Timing.GetSpeed, **kwargs)
 
     @property
     def dead(self) -> bool:
@@ -292,17 +296,13 @@ class CombatantMixIn(ABC):
 
     @property
     def max_hp(self) -> int:
-        if self._cache_max_hp is None:
-            self._cache_max_hp = self.base_max_hp
-            self._set()
-        return self._cache_max_hp
+        self._set_max_hp()
+        return self.cache_max_hp
 
     @property
     def speed(self) -> int:
-        if self._cache_speed is None:
-            self._cache_speed = self.base_speed
-            self._set()
-        return self._cache_speed
+        self._set_speed()
+        return self.cache_speed
 
     @property
     def hp(self) -> str:
@@ -331,6 +331,8 @@ class CombatantMixIn(ABC):
         if attack.missed is None:
             passed[MISSED] = attack.miss_check()
         attack = enemy.defend(attack, self, **passed)
+        if attack.missed is False:
+            passed[MISSED] = attack.miss_check()
         enemy.suffer(attack)
         return passed
 
@@ -341,12 +343,12 @@ class CombatantMixIn(ABC):
         return attack
 
     def moved(self, target: int):
-        kws = {TARGET: target}
+        kws = {TARGET_POSITION: target}
         factors = self.modify(Timing.Move, **kws)
         self.after_affect(Timing.Move, factors, **kws)
 
     def move(self, target: int):
-        kws = {TARGET: target}
+        kws = {TARGET_POSITION: target}
         factors = self.modify(Timing.Move, **kws)
         Arena().move(self, target)
         self.after_affect(Timing.Move, factors, **kws)
@@ -407,7 +409,7 @@ class CombatantMixIn(ABC):
 
     @max_hp.setter
     def max_hp(self, value):
-        self._cache_max_hp = value
+        self.cache_max_hp = value
 
 
 class Arena(SingletonMixIn):

@@ -34,6 +34,4 @@ class Shield(OffHand):
         elif timing == Timing.GetMaxHp:
             this = kw[THIS]
             assert isinstance(this, CombatantMixIn)
-            this.max_hp += int(this.base_max_hp * 0.2)
-
-
+            this.cache_max_hp += int(this.base_max_hp * 0.2)

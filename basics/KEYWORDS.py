@@ -7,5 +7,5 @@ IGNORE_BLOCK = "ignore_block"  # bool
 SPEED = "speed"  # int
 MAX_HP = "max_hp"  # int
 THIS = "this"  # combatant
-TARGET = "target"  # int
+TARGET_POSITION = "target_position"  # int
 BUFF = "buff"  # buff

@@ -64,8 +64,10 @@ class PlayerBrain(Brain):
                 continue
 
 
-class AIBrain(Brain):
-    def __init__(self, rand: Random):
+class AIBrain(Brain, SingletonMixIn):
+    def __init__(self, rand: Random = None):
+        if rand is None:
+            return
         self.rand = rand
 
     def decide(self, caster: CombatantMixIn, arena: Arena) -> Optional[Decision]:
@@ -99,14 +101,14 @@ class AIBrain(Brain):
         return targets.random_choose(self.rand)
 
 
-monster_brain = AIBrain(Random())
+AIBrain(Random())
 
-player_brain = PlayerBrain()
+PlayerBrain()
 
 
 class Character(CombatantMixIn, EquipageMixIn):
     async def get_decision(self) -> Decision:
-        return await player_brain.decide(self, Arena())
+        return await PlayerBrain().decide(self, Arena())
 
     def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
         return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs + self.equipage.factors))
@@ -137,7 +139,7 @@ class Monster(CombatantMixIn):
         pass
 
     async def get_decision(self) -> Decision:
-        return monster_brain.decide(self, Arena())
+        return AIBrain().decide(self, Arena())
 
 
 # endregion

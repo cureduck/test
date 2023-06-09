@@ -90,3 +90,15 @@ class Skip(Action):
             (),
             ()
         )
+
+
+class Protect(Action):
+    def __init__(self):
+        super().__init__(
+            (),
+            (),
+            (
+                (Targeting(True, True, EXCEPT_ITSELF), AddSelfBuff(Strength())),
+                (Targeting(True, True, ITSELF), AddSelfBuff(Strength())),
+            )
+        )
