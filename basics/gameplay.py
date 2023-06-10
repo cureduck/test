@@ -193,7 +193,7 @@ class IndBuff(Buff, ABC):  # independent refresh time buff
 
 
 class RefBuff(Buff, ABC):  # refresh time buff
-    def __init__(self, duration: int, stack: int = 1):
+    def __init__(self, duration: int = 3, stack: int = 1):
         self.duration = duration
         self.stack = stack
 
@@ -783,7 +783,7 @@ class Effect(ABC):
         pass
 
     @abstractmethod
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton: dict[str, Any]) -> dict:
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton: dict[str, Any]) -> NoReturn:
         """
 
         @param receiver:

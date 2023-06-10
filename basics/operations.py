@@ -34,7 +34,10 @@ class Slash(Action):
                 PosReqm(Targeting(False, True, 0, 1, 2)),
                 TargetAliveReqm()
             ),
-            ((Targeting(False, True, 1, 2), Damage((15, 20))),)
+            (
+                (Targeting(False, True, 1, 2), Damage((15, 20))),
+                (Targeting(False, True, 1, 2), ApplyTargetBuff(Combo()),)
+            )
         )
 
 
