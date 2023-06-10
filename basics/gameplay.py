@@ -135,32 +135,75 @@ class Buff(FactorMixIn, ABC):
     def name(self) -> str:
         pass
 
-    def __init__(self, stack: int, duration: int):
-        self.stack = stack
-        self.duration = duration
+    def __repr__(self):
+        return f"{self.name}"
 
-    def after_affect(self, timing: Timing, baton):
-        self.stack -= 1
-        self.on_expire()
-
-    def on_expire(self) -> NoReturn:
+    @abstractmethod
+    def on_add(self, buff: Buff):
         pass
 
-    def __repr__(self):
-        return f"{self.name}({self.stack}, {self.duration})"
+    @property
+    @abstractmethod
+    def expire(self) -> bool:
+        pass
 
-    def clone(self) -> Buff:
-        return self.__class__(self.stack, self.duration)
+    stackable = True
+
+    def on_turn_end(self):
+        pass
+
+    def on_expire(self):
+        pass
 
 
-class PositiveBuff(Buff, ABC):
-    def __init__(self, stack: int = 1, duration: int = 1):
-        super().__init__(stack, duration)
+class Timer(list[int, int]):
+    def __init__(self, duration: int, stack: int = 1):
+        super().__init__([duration, stack])
+
+    def tick(self):
+        self[0] -= 1
 
 
-class NegativeBuff(Buff, ABC):
-    def __init__(self, stack: int = 1, duration: int = 1):
-        super().__init__(stack, duration)
+class IndBuff(Buff, ABC):  # independent refresh time buff
+    def __init__(self, duration: int = 3, stack: int = 1):
+        self.timers = [Timer(duration, stack)]
+
+    def on_add(self, ind_buff: IndBuff):
+        self.timers.append(ind_buff.timers[0])
+
+    def on_turn_end(self):
+        for timer in self.timers:
+            timer.tick()
+        filter(lambda t: t[0] > 0, self.timers)
+
+    @property
+    def expire(self) -> bool:
+        return len(self.timers) == 0
+
+    def after_affect(self, timing: Timing, baton: dict[str, Any]) -> NoReturn:
+        def find_shortest() -> Timer:
+            shortest = self.timers[0]
+            for timer in self.timers:
+                if timer[0] < shortest[0]:
+                    shortest = timer
+            return shortest
+
+        self.timers.remove(find_shortest())
+        self.on_expire()
+
+
+class RefBuff(Buff, ABC):  # refresh time buff
+    def __init__(self, duration: int, stack: int = 1):
+        self.duration = duration
+        self.stack = stack
+
+    def on_add(self, ref_buff: RefBuff):
+        self.stack += ref_buff.stack
+        self.duration = max(self.duration, ref_buff.duration)
+
+    @property
+    def expire(self) -> bool:
+        return self.duration <= 0
 
 
 class Buffs(list[Buff]):
@@ -170,57 +213,25 @@ class Buffs(list[Buff]):
             buff.on_expire = self.check_expire
 
     def add(self, buff: Buff):
-        for b in self:
-            if b.name == buff.name:
-                b.stack += buff.stack
-                b.duration = max(b.duration, buff.duration)
-                return
+        if buff.stackable:
+            for b in self:
+                if b.name == buff.name:
+                    b.on_add(buff)
+                    return
         self.append(buff)
 
     def check_expire(self):
         for buff in self:
-            if buff.stack <= 0 or buff.duration <= 0:
+            if buff.expire:
                 self.remove(buff)
 
     def turn_end(self):
         for buff in self:
-            buff.duration -= 1
+            buff.on_turn_end()
         self.check_expire()
 
-    def _group_by_name(self) -> dict[str, Buff]:
-        """
-        return a dict, with buff name as key, and add the value of the same name
-        """
-        d = {}
-        for buff in self:
-            if buff.name not in d:
-                d[buff.name] = buff.clone()
-            else:
-                d[buff.name].stack += buff.stack
-                d[buff.name].duration = max(d[buff.name].duration, buff.duration)
-        return d
-
     def __repr__(self):
-        return ",".join([f"{v}:{v.stack}" for v in self._group_by_name().values()])
-
-
-# class BuffMixIn:
-#     def __init__(self, *args: Buff):
-#         self.buffs = Buffs(*args)
-
-
-# endregion
-
-
-# class StatusMixIn:
-#     def __init__(self, name, cur_hp: int, base_max_hp: int, base_speed: int):
-#         self.name = name
-#         self.cur_hp = cur_hp
-#         self.base_max_hp = base_max_hp
-#         self.base_speed = base_speed
-#
-#         self._cache_max_hp = None
-#         self._cache_speed = None
+        return ",".join([str(buff) for buff in self])
 
 
 class Attack:

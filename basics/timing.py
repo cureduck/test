@@ -12,3 +12,4 @@ class Timing(IntFlag):
     Equip = 0b1000000
     Unequip = 0b10000000
     GetMaxHp = 0b100000000
+    Death = 0b10000000000

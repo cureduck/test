@@ -13,3 +13,4 @@ THIS = "this"  # combatant
 TARGET_POSITION = "target_position"  # int
 BUFF = "buff"  # buff
 MISLEAD_TARGET = "mislead_target"  # combatant
+COMBO = "combo"  # combo

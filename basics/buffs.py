@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from .KEYWORDS import *
 from .gameplay import *
 
 
-class Dodge(PositiveBuff):
+class Dodge(IndBuff):
     def may_affect(self, timing: Timing, baton) -> bool:
         if timing == Timing.Defend:
             return True
@@ -27,7 +26,7 @@ class Dodge(PositiveBuff):
         return "D"
 
 
-class Strength(PositiveBuff):
+class Strength(IndBuff):
     def may_affect(self, timing: Timing, baton) -> bool:
         if timing == Timing.Attack:
             return True
@@ -47,17 +46,19 @@ class Strength(PositiveBuff):
         return "S"
 
 
-class Protected(PositiveBuff):
+class Protected(IndBuff):
     @property
     def name(self) -> str:
         return 'Protected'
 
-    def __init__(self, protector):
+    def __init__(self, protector: CombatantMixIn):
         super().__init__()
         self.protector = protector
 
     def may_affect(self, timing: Timing, baton) -> bool:
         if timing == Timing.Mislead:
+            return True
+        elif timing == Timing.Death:
             return True
         return False
 
@@ -73,3 +74,25 @@ class Protected(PositiveBuff):
 
     def __repr__(self):
         return "P"
+
+    def expire(self) -> bool:
+        if super().expire:
+            return self.protector.dead
+
+
+class Combo(RefBuff):
+
+    def may_affect(self, timing: Timing, baton) -> bool:
+        if timing == Timing.Attack and COMBO in baton:
+            return True
+        return False
+
+    def affect(self, timing: Timing, baton):
+        pass
+
+    @property
+    def name(self) -> str:
+        return "Combo"
+
+    def __repr__(self):
+        return "C"

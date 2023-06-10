@@ -140,6 +140,7 @@ class Monster(CombatantMixIn):
 
     async def get_decision(self) -> Decision:
         return AIBrain().decide(self, Arena())
+        # return await PlayerBrain().decide(self, Arena())
 
 
 # endregion
@@ -154,6 +155,20 @@ class WildDog(Monster):
     def __init__(self, name: str, cur_hp: int = 24, base_max_hp: int = 24, base_speed: int = 9):
         super().__init__(name, cur_hp, base_max_hp, base_speed)
         self.buffs = Buffs(Dodge())
+
+    def get_actions(self) -> (Action, ...):
+        return (Bite(),)
+
+
+class Robber(Monster):
+
+    @property
+    def preference(self) -> tuple[str, ...]:
+        return ()
+
+    def __init__(self, name: str, cur_hp: int = 24, base_max_hp: int = 24, base_speed: int = 9):
+        super().__init__(name, cur_hp, base_max_hp, base_speed)
+        self.buffs = Buffs()
 
     def get_actions(self) -> (Action, ...):
         return (Bite(),)
