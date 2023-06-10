@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .gameplay import *
-from .KEYWORDS import *
+
 
 class Heal(Effect):
     def __init__(self, amount: tuple[int, int]):
@@ -21,7 +21,8 @@ class Damage(Effect):
         self.amount = amount
         self.baton = baton
 
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton: dict[str, Any]) -> Optional[
+        dict[str, Any]]:
         targets = receiver.find_target(target)
         for aim in targets:
             if aim is not None:
@@ -54,4 +55,3 @@ class AddSelfBuff(Effect):
     def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], **baton) -> Optional[dict[str, Any]]:
         receiver.add_buff(self.buff, baton)
         return baton
-

@@ -1,21 +1,20 @@
 from __future__ import annotations
-from typing import Union
 
-from .gameplay import *
 from .KEYWORDS import *
+from .gameplay import *
 
 
 class Dodge(PositiveBuff):
-    def may_affect(self, timing: Timing, **kw) -> bool:
+    def may_affect(self, timing: Timing, baton) -> bool:
         if timing == Timing.Defend:
             return True
         return False
 
-    def affect(self, timing: Timing, **kw: dict[str, Union[CombatantMixIn, Attack]]):
+    def affect(self, timing: Timing, baton):
         if timing == Timing.Defend:
-            attack = kw[ATTACK]
+            attack = baton[ATTACK]
             assert isinstance(attack, Attack)
-            if kw.get(IGNORE_EVADE, False):
+            if baton.get(IGNORE_EVADE, False):
                 pass
             else:
                 attack.acc /= 2
@@ -29,14 +28,14 @@ class Dodge(PositiveBuff):
 
 
 class Strength(PositiveBuff):
-    def may_affect(self, timing: Timing, **kw) -> bool:
+    def may_affect(self, timing: Timing, baton) -> bool:
         if timing == Timing.Attack:
             return True
         return False
 
-    def affect(self, timing: Timing, **kw: dict[str, Union[CombatantMixIn, Attack]]):
+    def affect(self, timing: Timing, baton):
         if timing == Timing.Attack:
-            attack = kw[ATTACK]
+            attack = baton[ATTACK]
             assert isinstance(attack, Attack)
             attack.mag += .5
 
@@ -46,3 +45,31 @@ class Strength(PositiveBuff):
 
     def __repr__(self):
         return "S"
+
+
+class Protected(PositiveBuff):
+    @property
+    def name(self) -> str:
+        return 'Protected'
+
+    def __init__(self, protector):
+        super().__init__()
+        self.protector = protector
+
+    def may_affect(self, timing: Timing, baton) -> bool:
+        if timing == Timing.Mislead:
+            return True
+        return False
+
+    def affect(self, timing: Timing, baton):
+        if timing == Timing.Mislead:
+            defender = baton[DEFENDER]
+            assert isinstance(defender, CombatantMixIn)
+            pos = Arena().find_position(defender)
+            another_pos = Targeting(True, True, 0)
+            another = defender.find_target(another_pos)
+            baton[MISLEAD_TARGET] = self.protector
+            print(f"mislead to {self.protector}")
+
+    def __repr__(self):
+        return "P"

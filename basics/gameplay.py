@@ -15,10 +15,10 @@ ARENA_WIDTH = 4
 
 
 class FactorMixIn(ABC):
-    def affect(self, timing: Timing, **kw) -> NoReturn:
+    def affect(self, timing: Timing, baton) -> NoReturn:
         pass
 
-    def may_affect(self, timing: Timing, **kw) -> bool:
+    def may_affect(self, timing: Timing, baton: dict[str, Any]) -> bool:
         return False
 
     @staticmethod
@@ -31,7 +31,7 @@ class FactorMixIn(ABC):
         """
         return 0
 
-    def after_affect(self, timing: Timing, **kw) -> NoReturn:
+    def after_affect(self, timing: Timing, baton: dict[str, Any]) -> NoReturn:
         pass
 
 
@@ -139,7 +139,7 @@ class Buff(FactorMixIn, ABC):
         self.stack = stack
         self.duration = duration
 
-    def after_affect(self, timing: Timing, **kw):
+    def after_affect(self, timing: Timing, baton):
         self.stack -= 1
         self.on_expire()
 
@@ -224,7 +224,7 @@ class Buffs(list[Buff]):
 
 
 class Attack:
-    def __init__(self, amount: tuple[int, int], mag: float = 1.0, acc: float = 1.0, crit=0,
+    def __init__(self, amount: tuple[int, int], mag: float = 1.0, acc: float = 1.0, crit: float = 0,
                  missed: Optional[bool] = None, critted: Optional[bool] = None):
         """
 
@@ -292,7 +292,8 @@ class CombatantMixIn(ABC):
         else:
             dmg = int(game_random.randint(attack.min, attack.max) * attack.mag)
         self.cur_hp -= dmg
-        print(f"{self.name} suffer {dmg} damage, {self.hp} left")
+        critted_str = "critted" if attack.critted else ""
+        print(f"{self.name} suffer {dmg} damage, {self.hp} left {critted_str}")
 
     @property
     def max_hp(self) -> int:
@@ -309,12 +310,13 @@ class CombatantMixIn(ABC):
         return f"{self.cur_hp}/{self.max_hp}"
 
     @abstractmethod
-    def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
+    def factors(self, timing: Timing, baton: dict[str, Any]) -> Sequence[FactorMixIn, ...]:
         pass
 
-    def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], baton: dict[str, Any]) -> None:
+    def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], baton: dict[str, Any], crit=.15) -> None:
         """
         Attack the enemy.
+        @param crit:
         @param enemy:
         @param amount:
         @param baton: passed to factors
@@ -322,24 +324,38 @@ class CombatantMixIn(ABC):
         """
         if enemy is None or enemy.dead:
             return
-        attack = Attack(amount)
+        attack = Attack(amount, crit=crit)
         attack.missed = baton.get(MISSED, None)
         attack.critted = baton.get(CRITTED, None)
-        kws = {ATTACK: attack, ENEMY: enemy}
-        factors = self.modify(Timing.Attack, baton, **kws)
-        self.after_affect(Timing.Attack, factors, baton, **kws)
+        baton.update({ATTACKER: self, ATTACK: attack, DEFENDER: enemy})
+        factors = self.modify(Timing.Attack, baton)
+        self.after_affect(Timing.Attack, factors, baton)
         if attack.missed is None:
             baton[MISSED] = attack.miss_check()
-        attack = enemy.defend(attack, self, baton)
+        if attack.missed is True:
+            return
+        another = enemy.mislead(attack, self, baton)
+        attack = another.defend(attack, self, baton)
         if attack.missed is False:
             baton[MISSED] = attack.miss_check()
-        enemy.suffer(attack)
-        return
+        another.suffer(attack)
+
+    def mislead(self, attack: Attack, attacker: CombatantMixIn, baton: dict[str, Any]) -> CombatantMixIn:
+        """
+        when a target is going to be attacked by someone else, mislead will try someone else to
+        take the attack for me.
+        @param attack:
+        @param attacker:
+        @param baton:
+        @return:
+        """
+        factors = self.modify(Timing.Mislead, baton)
+        self.after_affect(Timing.Mislead, factors, baton)
+        return baton.get(MISLEAD_TARGET, self)
 
     def defend(self, attack: Attack, enemy: CombatantMixIn, baton: dict[str, Any]) -> Attack:
-        kws = {ATTACK: attack, ENEMY: enemy}
-        factors = self.modify(Timing.Defend, baton, **kws)
-        self.after_affect(Timing.Defend, factors, baton, **kws)
+        factors = self.modify(Timing.Defend, baton)
+        self.after_affect(Timing.Defend, factors, baton)
         return attack
 
     def moved(self, target: int):
@@ -354,31 +370,31 @@ class CombatantMixIn(ABC):
         self.after_affect(Timing.Move, factors, **kws)
 
     def add_buff(self, buff: Buff, baton):
-        kws = {BUFF: buff}
-        factors = self.modify(Timing.Buffed, baton, **kws)
+        baton.update({BUFF: buff})
+        factors = self.modify(Timing.Buffed, baton)
         self.buffs.add(buff)
-        self.after_affect(Timing.Buffed, factors, baton, **kws)
+        self.after_affect(Timing.Buffed, factors, baton)
 
     def die(self):
         pass
 
-    def modify(self, timing: Timing, baton: dict[str, Any], **kw) -> Sequence[FactorMixIn]:
-        factors = self.factors(timing, **baton, **kw)
+    def modify(self, timing: Timing, baton: dict[str, Any]) -> Sequence[FactorMixIn]:
+        factors = self.factors(timing, baton)
         for factor in factors:
-            factor.affect(timing, **baton, **kw)
+            factor.affect(timing, baton)
         return factors
 
     @staticmethod
-    def after_affect(timing: Timing, factors: Sequence[FactorMixIn], baton: dict[str, Any], **kw) -> NoReturn:
+    def after_affect(timing: Timing, factors: Sequence[FactorMixIn], baton: dict[str, Any]) -> NoReturn:
         for factor in factors:
-            factor.after_affect(timing, **baton, **kw)
+            factor.after_affect(timing, baton)
 
     def heal(self, amount, baton):
         pass
 
-    def find_target(self, target: Targeting, term: Callable[[CombatantMixIn], bool] = None) -> \
+    def find_target(self, target: Targeting, filtor: Callable[[CombatantMixIn], bool] = None) -> \
             Sequence[Optional[CombatantMixIn], ...]:
-        return Arena().find_target(self, target, term)
+        return Arena().find_target(self, target, filtor)
 
     @property
     def index(self) -> int:
@@ -511,7 +527,7 @@ class Arena(SingletonMixIn):
         raise ValueError("Combatant not in arena")
 
     def find_target(self, combatant: CombatantMixIn, target: Targeting,
-                    term: Callable[[CombatantMixIn], bool] = None) -> Sequence[Optional[CombatantMixIn], ...]:
+                    filtor: Callable[[CombatantMixIn], bool] = None) -> Sequence[Optional[CombatantMixIn], ...]:
         def find(li: list[CombatantMixIn], index: int) -> Optional[CombatantMixIn]:
             return li[index]
 
@@ -533,8 +549,8 @@ class Arena(SingletonMixIn):
             else:
                 candi = self.left
                 candidates = [find(candi, i) for i in targets]
-        if term is not None:
-            candidates = list(filter(term, candidates))
+        if filtor is not None:
+            candidates = list(filter(filtor, candidates))
             return candidates
         else:
             return candidates

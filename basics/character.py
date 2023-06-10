@@ -26,7 +26,7 @@ class Brain(ABC):
         return action.check_target(caster, targeting)
 
 
-class PlayerBrain(Brain):
+class PlayerBrain(Brain, SingletonMixIn):
     async def decide(self, caster: CombatantMixIn, arena: Arena) -> Optional[Decision]:
         while True:
             try:
@@ -80,7 +80,7 @@ class AIBrain(Brain, SingletonMixIn):
             if action.tar_reqm in (None, ()):
                 return Decision([Action, None])
             try:
-                targeting = self.choose_preferred_target(caster, action, arena)
+                targeting = self.choose_preferred_target(caster, action)
                 return Decision([action, targeting])
             except TargetingError:
                 actions.remove(action)
@@ -91,7 +91,7 @@ class AIBrain(Brain, SingletonMixIn):
         """
         return self.rand.choice(actions)
 
-    def choose_preferred_target(self, caster: CombatantMixIn, action: Action, arena: Arena) -> Optional[Targeting]:
+    def choose_preferred_target(self, caster: CombatantMixIn, action: Action) -> Optional[Targeting]:
         """
         temporary random choose
         """
@@ -110,8 +110,8 @@ class Character(CombatantMixIn, EquipageMixIn):
     async def get_decision(self) -> Decision:
         return await PlayerBrain().decide(self, Arena())
 
-    def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
-        return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs + self.equipage.factors))
+    def factors(self, timing: Timing, baton) -> Sequence[FactorMixIn, ...]:
+        return list(filter(lambda x: x.may_affect(timing, baton), self.buffs + self.equipage.factors))
 
     def __init__(self, name: str, cur_hp: int, base_max_hp: int, base_speed: int, buffs: Buffs = None,
                  *equipment: Equipment):
@@ -127,8 +127,8 @@ class Character(CombatantMixIn, EquipageMixIn):
 
 
 class Monster(CombatantMixIn):
-    def factors(self, timing: Timing, **kw) -> Sequence[FactorMixIn, ...]:
-        return list(filter(lambda x: x.may_affect(timing, **kw), self.buffs))
+    def factors(self, timing: Timing, baton) -> Sequence[FactorMixIn, ...]:
+        return list(filter(lambda x: x.may_affect(timing, baton), self.buffs))
 
     def __init__(self, name: str, cur_hp: int, base_max_hp: int, base_speed: int, buffs: Buffs = None):
         CombatantMixIn.__init__(self, name, cur_hp, base_max_hp, base_speed, buffs)

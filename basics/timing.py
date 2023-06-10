@@ -4,6 +4,7 @@ from enum import IntFlag
 class Timing(IntFlag):
     Healing = 0b000001
     Attack = 0b000010
+    Mislead = 0b1000000000
     Defend = 0b000100
     Move = 0b001000
     Buffed = 0b010000
