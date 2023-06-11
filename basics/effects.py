@@ -4,7 +4,7 @@ from .buffs import Protected
 from .reqirements import *
 
 
-class Heal(Effect):
+class HealTarget(Effect):
     def __init__(self, amount: tuple[int, int]):
         super().__init__()
         self.amount = amount

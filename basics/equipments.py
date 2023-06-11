@@ -42,3 +42,11 @@ class Bow(TwoHandWeapon):
 
     def action(self) -> tuple[Action, ...]:
         return Aiming(), Shot()
+
+
+class MagicBook(OffHand):
+    def __init__(self):
+        super().__init__()
+
+    def action(self) -> tuple[Action, ...]:
+        return (Heal((4, 9)),)

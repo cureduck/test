@@ -345,6 +345,9 @@ class CombatantMixIn(ABC):
     def factors(self, timing: Timing, baton: dict[str, Any]) -> Sequence[FactorMixIn, ...]:
         pass
 
+    def heal(self, amount: tuple[int, int], baton) -> NoReturn:
+        self.cur_hp = min(self.cur_hp + game_random.randint(amount[0], amount[1]), self.max_hp)
+
     def attack(self, enemy: CombatantMixIn, amount: tuple[int, int], baton: dict[str, Any], crit=.15) -> None:
         """
         Attack the enemy.
@@ -421,9 +424,6 @@ class CombatantMixIn(ABC):
     def after_affect(timing: Timing, factors: Sequence[FactorMixIn], baton: dict[str, Any]) -> NoReturn:
         for factor in factors:
             factor.after_affect(timing, baton)
-
-    def heal(self, amount, baton):
-        pass
 
     def find_target(self, target: Targeting, filtor: Callable[[CombatantMixIn], bool] = None) -> \
             Sequence[Optional[CombatantMixIn], ...]:
@@ -690,9 +690,9 @@ class Action:
             tar, eff = tar_eff
             if tar.selective and selected_target is None:
                 raise TargetingError("Selective target required")
-            if not tar.selective and selected_target is not None:
-                raise TargetingError("Aoe target not allowed")
-
+            if not tar.selective:
+                eff.execute(receiver, tar, baton)
+                return None
             if tar.selective:
                 tar = selected_target
             eff.execute(receiver, tar, baton)
@@ -771,7 +771,7 @@ class Equipage(dict[Slot, Optional[Equipment]]):
 
     def get_actions(self) -> tuple[Action, ...]:
         actions = []
-        for item in self.values():
+        for item in set(self.values()):
             if item is not None:
                 actions.extend(item.action())
         return tuple(actions)

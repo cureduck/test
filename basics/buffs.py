@@ -100,3 +100,23 @@ class Combo(RefBuff):
 
     def __repr__(self):
         return "C"
+
+
+class Block(IndBuff):
+    def may_affect(self, timing: Timing, baton) -> bool:
+        if timing == Timing.Defend:
+            return True
+        return False
+
+    def affect(self, timing: Timing, baton):
+        if timing == Timing.Defend:
+            attack = baton[ATTACK]
+            assert isinstance(attack, Attack)
+            attack.mag -= .5
+
+    @property
+    def name(self) -> str:
+        return "Block"
+
+    def __repr__(self):
+        return "B"

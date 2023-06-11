@@ -94,6 +94,7 @@ class Protect(Action):
             ),
             (
                 (Targeting(True, True, EXCEPT_SELF), ProtectTarget()),
+                (Targeting(True, False, ONLY_SELF), ApplyTargetBuff(Block(3, 3)))
             )
         )
 
@@ -127,6 +128,21 @@ class Shot(Action):
                 TargetAliveReqm()
             ),
             (
-                (Targeting(False, True, 1, 2, 3), ComboConditionEffect(Damage((6, 9)), Damage((12, 16), {IGNORE_EVADE: True}))),
+                (Targeting(False, True, 1, 2, 3),
+                 ComboConditionEffect(Damage((6, 9)), Damage((12, 16), {IGNORE_EVADE: True}))),
+            ),
+        )
+
+
+class Heal(Action):
+    def __init__(self, amount: (int, int)):
+        super().__init__(
+            (),
+            (
+                PosReqm(Targeting(True, True, 0, 1, 2, 3)),
+                TargetAliveReqm()
+            ),
+            (
+                (Targeting(True, True, 0, 1, 2, 3), HealTarget(amount)),
             ),
         )
