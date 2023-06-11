@@ -7,7 +7,7 @@ from basics import *
 a = Character("a", 13, 20, 3, Buffs(Dodge(), Strength()), Sword())
 b = Character("b", 13, 20, 7, Buffs(Strength(), Protected(a)), Sword(), Shield())
 c = Character("c", 12, 20, 9, Buffs(Protected(a)), Sword())
-d = Character("d", 18, 20, 2, Buffs(Protected(a)), Sword())
+d = Character("d", 18, 20, 2, Buffs(Protected(a)), Bow())
 
 e = WildDog("e")
 f = WildDog("f")

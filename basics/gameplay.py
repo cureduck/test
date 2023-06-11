@@ -36,8 +36,8 @@ class FactorMixIn(ABC):
         pass
 
 
-ITSELF = -1
-EXCEPT_ITSELF = -2
+ONLY_SELF = -1
+EXCEPT_SELF = -2
 
 
 class Position(tuple[bool, int, ...]):
@@ -98,11 +98,11 @@ class Targeting:
 
     @property
     def selfhood(self) -> bool:
-        return len(self) == 1 and self[0] == ITSELF
+        return len(self) == 1 and self[0] == ONLY_SELF
 
     @property
     def selfless(self) -> bool:
-        return len(self) == 1 and self[0] == EXCEPT_ITSELF
+        return len(self) == 1 and self[0] == EXCEPT_SELF
 
     def alt(self, position: Position) -> Targeting:
         if self.selfhood:
@@ -390,11 +390,11 @@ class CombatantMixIn(ABC):
         factors = self.modify(Timing.Move, **kws)
         self.after_affect(Timing.Move, factors, **kws)
 
-    def move(self, target: int):
-        kws = {TARGET_POSITION: target}
-        factors = self.modify(Timing.Move, **kws)
+    def move(self, target: int, baton: dict[str, Any]=None):
+        baton = baton.update({TARGET_POSITION: target}) if baton else {TARGET_POSITION: target}
+        factors = self.modify(Timing.Move, baton)
         Arena().move(self, target)
-        self.after_affect(Timing.Move, factors, **kws)
+        self.after_affect(Timing.Move, factors, baton)
 
     def add_buff(self, buff: Buff, baton):
         b = buff.clone()
@@ -644,17 +644,23 @@ class PostReqm(Requirement, ABC):
 
 
 class Action:
-    def __init__(self, exe_reqm: tuple[PreReqm, ...], tar_reqm: tuple[PostReqm, ...],
-                 effects: tuple[tuple[Targeting, Effect], ...]):
-        self.exe_reqm = exe_reqm
-        self.tar_reqm = tar_reqm
+    """
+    firstly, check pre-requirements, decide whether to the action button can be clicked or not
+    secondly, check post-requirements, check if there is any invalid target, if so, raise an error
+    thirdly, execute effects, apply effects to targets selected in the second step or the fixed targets
+    """
+    def __init__(self, pre_reqm: tuple[PreReqm, ...], post_reqm: tuple[PostReqm, ...],
+                 effects: tuple[tuple[Targeting, Effect], ...], baton=None):
+        self.pre_reqm = pre_reqm
+        self.pre_reqm = post_reqm
         self.effects = effects
+        self.baton = baton
 
     def check(self, receiver: CombatantMixIn) -> bool:
-        return all(req.check(receiver) for req in self.exe_reqm)
+        return all(req.check(receiver) for req in self.pre_reqm)
 
     def check_target(self, receiver: CombatantMixIn, target: Optional[Targeting] = None) -> Targeting:
-        for req in self.tar_reqm:
+        for req in self.pre_reqm:
             target = req.check(receiver, target)
             if target.none:
                 raise TargetingError("No valid target")
@@ -667,7 +673,7 @@ class Action:
         @param selected_target: selected target can be None if the action is not selective
         @return:
         """
-        baton = dict()
+        baton = self.baton if self.baton is not None else {}
         for tar_eff in self.effects:
             tar, eff = tar_eff
             if tar.selective and selected_target is None:

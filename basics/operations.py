@@ -13,14 +13,13 @@ class Bash(Action):
     """
 
     def __init__(self):
-        super().__init__(
-            (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            (PosReqm(Targeting(False, False, 0, 1, 2)), TargetAliveReqm(),),
-            (
-                (Targeting(False, False, 0, 1, 2), Damage((2, 4), {IGNORE_EVADE: True})),
-                (Targeting(False, False, 0, 1, 2), ApplyTargetBuff(Combo())),
-            )
-        )
+        super().__init__((SelfPositionalRequirement(Position([True, 0, 1, 2])),),
+                         (PosReqm(Targeting(False, False, 0, 1, 2)), TargetAliveReqm(),), (
+                             (Targeting(False, False, 0, 1, 2), Damage((2, 4))),
+                             (Targeting(False, False, 0, 1, 2), ApplyTargetBuff(Combo())),
+                         ),
+                         {IGNORE_EVADE: True}
+                         )
 
 
 class Slash(Action):
@@ -32,15 +31,16 @@ class Slash(Action):
 
     def __init__(self):
         super().__init__(
-            (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
+            (
+                SelfPositionalRequirement(Position([True, 0, 1, 2])),
+            ),
             (
                 PosReqm(Targeting(False, True, 0, 1, 2)),
                 TargetAliveReqm()
             ),
             (
                 (Targeting(False, True, 1, 2), ComboConditionEffect(Damage((4, 6)), Damage((6, 9)), )),
-            )
-        )
+            ))
 
 
 class Bite(Action):
@@ -51,14 +51,10 @@ class Bite(Action):
     """
 
     def __init__(self):
-        super().__init__(
-            (
-                SelfPositionalRequirement(Position([True, 0, 1, 2])),
-                ValidTargetRequirement(Targeting(False, True, 0, 1, 2))
-            ),
-            (PosReqm(Targeting(False, True, 0, 1, 2)),),
-            ((Targeting(False, True, 0, 1, 2), Damage((3, 7))),)
-        )
+        super().__init__((
+            SelfPositionalRequirement(Position([True, 0, 1, 2])),
+            ValidTargetRequirement(Targeting(False, True, 0, 1, 2))
+        ), (PosReqm(Targeting(False, True, 0, 1, 2)),), ((Targeting(False, True, 0, 1, 2), Damage((3, 7))),))
 
 
 class Defend(Action):
@@ -67,11 +63,7 @@ class Defend(Action):
     """
 
     def __init__(self):
-        super().__init__(
-            (),
-            (),
-            ((Targeting(True, False, ITSELF), AddSelfBuff(Strength())),)
-        )
+        super().__init__((), (), ((Targeting(True, False, ONLY_SELF), AddSelfBuff(Strength())),))
 
 
 class Move(Action):
@@ -83,27 +75,58 @@ class Move(Action):
     def __init__(self, distance: int):
         super().__init__(
             (),
-            (PosReqm(Targeting(True, True, EXCEPT_ITSELF)), DistanceLimitReqm(distance)),
-            ((Targeting(True, True, EXCEPT_ITSELF), MoveTo(distance)),)
+            (PosReqm(Targeting(True, True, EXCEPT_SELF)), DistanceLimitReqm(distance)),
+            ((Targeting(True, True, EXCEPT_SELF), MoveTo(distance)),)
         )
 
 
 class Skip(Action):
     def __init__(self):
-        super().__init__(
-            (),
-            (),
-            ()
-        )
+        super().__init__((), (), ())
 
 
 class Protect(Action):
     def __init__(self):
         super().__init__(
             (),
-            (),
             (
-                (Targeting(True, True, EXCEPT_ITSELF), AddSelfBuff(Strength())),
-                (Targeting(True, True, ITSELF), AddSelfBuff(Strength())),
+                PosReqm(Targeting(True, True, EXCEPT_SELF)),
+            ),
+            (
+                #(Targeting(True, True, EXCEPT_SELF), ApplyTargetBuff(Protected())),
             )
+        )
+
+
+class Aiming(Action):
+    def __init__(self):
+        super().__init__(
+            (
+                SelfPositionalRequirement(Position([True, 1, 2, 3])),
+            ),
+            (
+                PosReqm(Targeting(False, True, 1, 2, 3)),
+                TargetAliveReqm()
+            ),
+            (
+                (Targeting(False, True, 0, 1, 2, 3), ApplyTargetBuff(Combo())),
+                (Targeting(False, True, 0, 1, 2, 3), ApplyTargetBuff(Combo())),
+            ),
+            {IGNORE_EVADE: True}
+        )
+
+
+class Shot(Action):
+    def __init__(self):
+        super().__init__(
+            (
+                SelfPositionalRequirement(Position([True, 1, 2, 3])),
+            ),
+            (
+                PosReqm(Targeting(False, True, 1, 2, 3)),
+                TargetAliveReqm()
+            ),
+            (
+                (Targeting(False, True, 1, 2, 3), ComboConditionEffect(Damage((6, 9)), Damage((12, 16), {IGNORE_EVADE: True}))),
+            ),
         )

@@ -36,7 +36,7 @@ class PlayerBrain(Brain, SingletonMixIn):
                     return None
                 action_index = int(input("choose action:"))
                 action = actions[action_index]
-                if action.tar_reqm in (None, ()):
+                if action.pre_reqm in (None, ()):
                     return Decision([action, None])
                 legal_targets = action.check_target(caster)
                 if len(legal_targets) == 0:
@@ -77,7 +77,7 @@ class AIBrain(Brain, SingletonMixIn):
             if len(actions) == 0:
                 return None
             action = self.choose_preferred_action(actions, caster)
-            if action.tar_reqm in (None, ()):
+            if action.pre_reqm in (None, ()):
                 return Decision([Action, None])
             try:
                 targeting = self.choose_preferred_target(caster, action)
@@ -95,7 +95,7 @@ class AIBrain(Brain, SingletonMixIn):
         """
         temporary random choose
         """
-        if action.tar_reqm in (None, ()):
+        if action.pre_reqm in (None, ()):
             return None
         targets = self.get_castable_targets(caster, action, None)
         return targets.random_choose(self.rand)
@@ -154,7 +154,7 @@ class WildDog(Monster):
 
     def __init__(self, name: str, cur_hp: int = 24, base_max_hp: int = 24, base_speed: int = 9):
         super().__init__(name, cur_hp, base_max_hp, base_speed)
-        self.buffs = Buffs(Dodge(), Combo())
+        self.buffs = Buffs(Dodge())
 
     def get_actions(self) -> (Action, ...):
         return (Bite(),)

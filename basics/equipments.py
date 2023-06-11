@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from .character import *
 from .operations import *
-from .KEYWORDS import *
+
 
 class Sword(OneHandWeapon):
     def __init__(self):
@@ -17,7 +16,7 @@ class Shield(OffHand):
         super().__init__()
 
     def action(self) -> tuple[Action, ...]:
-        return (Defend(),)
+        return Defend(), Protect()
 
     def may_affect(self, timing: Timing, baton) -> bool:
         if timing == Timing.Defend:
@@ -35,3 +34,11 @@ class Shield(OffHand):
             this = baton[THIS]
             assert isinstance(this, CombatantMixIn)
             this.cache_max_hp += int(this.base_max_hp * 0.2)
+
+
+class Bow(TwoHandWeapon):
+    def __init__(self):
+        super().__init__(10, (0, 7))
+
+    def action(self) -> tuple[Action, ...]:
+        return Aiming(), Shot()
