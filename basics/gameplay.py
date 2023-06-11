@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from abc import abstractmethod, ABC
 from enum import Enum
 from functools import singledispatchmethod
@@ -139,7 +140,7 @@ class Buff(FactorMixIn, ABC):
         return f"{self.name}"
 
     @abstractmethod
-    def on_add(self, buff: Buff):
+    def add(self, buff: Buff) -> NoReturn:
         pass
 
     @property
@@ -155,6 +156,9 @@ class Buff(FactorMixIn, ABC):
     def on_expire(self):
         pass
 
+    def clone(self):
+        return copy.deepcopy(self)
+
 
 class Timer(list[int, int]):
     def __init__(self, duration: int, stack: int = 1):
@@ -168,7 +172,7 @@ class IndBuff(Buff, ABC):  # independent refresh time buff
     def __init__(self, duration: int = 3, stack: int = 1):
         self.timers = [Timer(duration, stack)]
 
-    def on_add(self, ind_buff: IndBuff):
+    def add(self, ind_buff: IndBuff):
         self.timers.append(ind_buff.timers[0])
 
     def on_turn_end(self):
@@ -197,13 +201,21 @@ class RefBuff(Buff, ABC):  # refresh time buff
         self.duration = duration
         self.stack = stack
 
-    def on_add(self, ref_buff: RefBuff):
-        self.stack += ref_buff.stack
-        self.duration = max(self.duration, ref_buff.duration)
+    def add(self, ref_buff: RefBuff):
+        if self.stackable:
+            self.stack += ref_buff.stack
+            self.duration = max(self.duration, ref_buff.duration)
+        else:
+            self.stack = 1
+            self.duration = ref_buff.duration
 
     @property
     def expire(self) -> bool:
-        return self.duration <= 0
+        return self.duration <= 0 or self.stack <= 0
+
+    def after_affect(self, timing: Timing, baton: dict[str, Any]) -> NoReturn:
+        self.stack -= 1
+        self.on_expire()
 
 
 class Buffs(list[Buff]):
@@ -213,17 +225,21 @@ class Buffs(list[Buff]):
             buff.on_expire = self.check_expire
 
     def add(self, buff: Buff):
-        if buff.stackable:
-            for b in self:
-                if b.name == buff.name:
-                    b.on_add(buff)
-                    return
+        for b in self:
+            if b.name == buff.name:
+                b.add(buff)
+                return
+
         self.append(buff)
+        buff.on_expire = self.check_expire
 
     def check_expire(self):
+        buffs_to_remove = []
         for buff in self:
             if buff.expire:
-                self.remove(buff)
+                buffs_to_remove.append(buff)
+        for buff in buffs_to_remove:
+            self.remove(buff)
 
     def turn_end(self):
         for buff in self:
@@ -381,9 +397,10 @@ class CombatantMixIn(ABC):
         self.after_affect(Timing.Move, factors, **kws)
 
     def add_buff(self, buff: Buff, baton):
-        baton.update({BUFF: buff})
+        b = buff.clone()
+        baton.update({BUFF: b})
         factors = self.modify(Timing.Buffed, baton)
-        self.buffs.add(buff)
+        self.buffs.add(b)
         self.after_affect(Timing.Buffed, factors, baton)
 
     def die(self):
@@ -643,17 +660,23 @@ class Action:
                 raise TargetingError("No valid target")
         return target
 
-    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting]):
+    def execute(self, receiver: CombatantMixIn, selected_target: Optional[Targeting]):
+        """
+
+        @param receiver:
+        @param selected_target: selected target can be None if the action is not selective
+        @return:
+        """
         baton = dict()
         for tar_eff in self.effects:
             tar, eff = tar_eff
-            if tar.selective and target is None:
+            if tar.selective and selected_target is None:
                 raise TargetingError("Selective target required")
-            if not tar.selective and target is not None:
+            if not tar.selective and selected_target is not None:
                 raise TargetingError("Aoe target not allowed")
 
             if tar.selective:
-                tar = target
+                tar = selected_target
             eff.execute(receiver, tar, baton)
 
     def __repr__(self):

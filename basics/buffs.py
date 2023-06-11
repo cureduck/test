@@ -81,9 +81,10 @@ class Protected(IndBuff):
 
 
 class Combo(RefBuff):
+    stackable = False
 
     def may_affect(self, timing: Timing, baton) -> bool:
-        if timing == Timing.Attack and COMBO in baton:
+        if timing == Timing.Defend and COMBO in baton.keys():
             return True
         return False
 

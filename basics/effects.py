@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .gameplay import *
-
+from .reqirements import *
 
 class Heal(Effect):
     def __init__(self, amount: tuple[int, int]):
@@ -63,3 +63,29 @@ class ApplyTargetBuff(Effect):
         for aim in targets:
             if aim is not None:
                 aim.add_buff(self.buff, baton)
+
+
+class ConditionalEffect(Effect):
+    def __init__(self, condition: PreReqm, effect1: Effect, effect2: Effect):
+        super().__init__()
+        self.condition = condition
+        self.effect1 = effect1
+        self.effect2 = effect2
+
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton):
+        if self.condition.check(receiver):
+            self.effect1.execute(receiver, target, baton)
+        else:
+            self.effect2.execute(receiver, target, baton)
+
+
+class ComboConditionEffect(ConditionalEffect):
+    def __init__(self, effect1: Effect, effect2: Effect):
+        super().__init__(TargetHasComboReqm(), effect1, effect2)
+
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton):
+        baton[COMBO] = True
+        if self.condition.check(receiver):
+            self.effect1.execute(receiver, target, baton)
+        else:
+            self.effect2.execute(receiver, target, baton)

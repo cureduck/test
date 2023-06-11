@@ -154,7 +154,7 @@ class WildDog(Monster):
 
     def __init__(self, name: str, cur_hp: int = 24, base_max_hp: int = 24, base_speed: int = 9):
         super().__init__(name, cur_hp, base_max_hp, base_speed)
-        self.buffs = Buffs(Dodge())
+        self.buffs = Buffs(Dodge(), Combo())
 
     def get_actions(self) -> (Action, ...):
         return (Bite(),)

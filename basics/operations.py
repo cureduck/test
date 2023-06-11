@@ -15,8 +15,11 @@ class Bash(Action):
     def __init__(self):
         super().__init__(
             (SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-            (PosReqm(Targeting(False, False, 2, 3)), TargetAliveReqm(),),
-            ((Targeting(False, False, 2, 3), Damage((10, 15), {IGNORE_EVADE: True})),)
+            (PosReqm(Targeting(False, False, 0, 1, 2)), TargetAliveReqm(),),
+            (
+                (Targeting(False, False, 0, 1, 2), Damage((2, 4), {IGNORE_EVADE: True})),
+                (Targeting(False, False, 0, 1, 2), ApplyTargetBuff(Combo())),
+            )
         )
 
 
@@ -35,8 +38,7 @@ class Slash(Action):
                 TargetAliveReqm()
             ),
             (
-                (Targeting(False, True, 1, 2), Damage((15, 20))),
-                (Targeting(False, True, 1, 2), ApplyTargetBuff(Combo()),)
+                (Targeting(False, True, 1, 2), ComboConditionEffect(Damage((4, 6)), Damage((6, 9)), )),
             )
         )
 
@@ -55,7 +57,7 @@ class Bite(Action):
                 ValidTargetRequirement(Targeting(False, True, 0, 1, 2))
             ),
             (PosReqm(Targeting(False, True, 0, 1, 2)),),
-            ((Targeting(False, True, 0, 1, 2), Damage((4, 11))),)
+            ((Targeting(False, True, 0, 1, 2), Damage((3, 7))),)
         )
 
 

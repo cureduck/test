@@ -58,3 +58,16 @@ class TargetAliveReqm(PostReqm):
 
         targets = receiver.find_target(targeting, alive)
         return Targeting(targeting.friendly, targeting.selective, *[target.index for target in targets])
+
+
+class TargetHasBuffReqm(PreReqm):
+    def __init__(self, buff: str):
+        self.buff = buff
+
+    def check(self, receiver: CombatantMixIn) -> bool:
+        return any([x.name == self.buff for x in receiver.buffs])
+
+
+class TargetHasComboReqm(TargetHasBuffReqm):
+    def __init__(self):
+        super().__init__("Combo")
