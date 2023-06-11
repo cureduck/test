@@ -51,8 +51,8 @@ class Protected(IndBuff):
     def name(self) -> str:
         return 'Protected'
 
-    def __init__(self, protector: CombatantMixIn):
-        super().__init__()
+    def __init__(self, protector: CombatantMixIn, stack: int = 3, duration: int = 3):
+        super().__init__(stack, duration)
         self.protector = protector
 
     def may_affect(self, timing: Timing, baton) -> bool:
@@ -78,6 +78,9 @@ class Protected(IndBuff):
     def expire(self) -> bool:
         if super().expire:
             return self.protector.dead
+
+    def clone(self):
+        return Protected(self.protector)
 
 
 class Combo(RefBuff):

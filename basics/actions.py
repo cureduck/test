@@ -93,7 +93,7 @@ class Protect(Action):
                 PosReqm(Targeting(True, True, EXCEPT_SELF)),
             ),
             (
-                #(Targeting(True, True, EXCEPT_SELF), ApplyTargetBuff(Protected())),
+                (Targeting(True, True, EXCEPT_SELF), ProtectTarget()),
             )
         )
 

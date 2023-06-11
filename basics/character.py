@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .operations import *
+from .actions import *
 
 
 class Faith(FactorMixIn, ABC):
@@ -36,7 +36,7 @@ class PlayerBrain(Brain, SingletonMixIn):
                     return None
                 action_index = int(input("choose action:"))
                 action = actions[action_index]
-                if action.pre_reqm in (None, ()):
+                if action.post_reqm in (None, ()):
                     return Decision([action, None])
                 legal_targets = action.check_target(caster)
                 if len(legal_targets) == 0:

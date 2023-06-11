@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from .gameplay import *
+from .buffs import Protected
 from .reqirements import *
+
 
 class Heal(Effect):
     def __init__(self, amount: tuple[int, int]):
@@ -53,6 +54,15 @@ class AddSelfBuff(Effect):
         receiver.add_buff(self.buff, baton)
 
 
+class AddProtected(Effect):
+    def __init__(self):
+        super().__init__()
+
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton):
+        client = receiver.find_target(target)[0]
+        client.add_buff(Protected(receiver), baton)
+
+
 class ApplyTargetBuff(Effect):
     def __init__(self, buff: Buff):
         super().__init__()
@@ -63,6 +73,18 @@ class ApplyTargetBuff(Effect):
         for aim in targets:
             if aim is not None:
                 aim.add_buff(self.buff, baton)
+
+
+class ProtectTarget(Effect):
+    def __init__(self, stack: int = 3):
+        super().__init__()
+        self.stack = stack
+
+    def execute(self, receiver: CombatantMixIn, target: Optional[Targeting], baton):
+        targets = receiver.find_target(target)
+        for aim in targets:
+            if aim is not None:
+                aim.add_buff(Protected(receiver, self.stack), baton)
 
 
 class ConditionalEffect(Effect):

@@ -217,6 +217,11 @@ class RefBuff(Buff, ABC):  # refresh time buff
         self.stack -= 1
         self.on_expire()
 
+    def on_turn_end(self):
+        self.duration -= 1
+        if self.duration <= 0:
+            self.on_expire()
+
 
 class Buffs(list[Buff]):
     def __init__(self, *args: Buff):
@@ -455,6 +460,12 @@ class CombatantMixIn(ABC):
     def max_hp(self, value):
         self.cache_max_hp = value
 
+    def on_turn_start(self):
+        pass
+
+    def on_turn_end(self):
+        self.buffs.turn_end()
+
 
 class Arena(SingletonMixIn):
     def __init__(self, left: list[Optional[CombatantMixIn], ...] = None,
@@ -535,6 +546,7 @@ class Arena(SingletonMixIn):
             decision = await combatant.get_decision()
             print(f"{combatant} decided to {decision}\n")
             combatant.execute(decision)
+            combatant.on_turn_end()
             self.clean_dead_in_order()
             if self.is_over():
                 print("End")
@@ -652,7 +664,7 @@ class Action:
     def __init__(self, pre_reqm: tuple[PreReqm, ...], post_reqm: tuple[PostReqm, ...],
                  effects: tuple[tuple[Targeting, Effect], ...], baton=None):
         self.pre_reqm = pre_reqm
-        self.pre_reqm = post_reqm
+        self.post_reqm = post_reqm
         self.effects = effects
         self.baton = baton
 
@@ -660,7 +672,7 @@ class Action:
         return all(req.check(receiver) for req in self.pre_reqm)
 
     def check_target(self, receiver: CombatantMixIn, target: Optional[Targeting] = None) -> Targeting:
-        for req in self.pre_reqm:
+        for req in self.post_reqm:
             target = req.check(receiver, target)
             if target.none:
                 raise TargetingError("No valid target")

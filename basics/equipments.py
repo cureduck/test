@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .operations import *
+from .actions import *
 
 
 class Sword(OneHandWeapon):
