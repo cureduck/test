@@ -34,4 +34,6 @@ class TestSingletonMixIn(unittest.TestCase):
     def test_arena2(self):
         b = Arena([None, None, None, None], [None, None, None, None])
         a = Arena()
+        c = Arena([None, None, None, None], [None, None, None, None])
         self.assertEqual(None, a.left[0])
+        self.assertEqual(b, c)
