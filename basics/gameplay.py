@@ -69,7 +69,7 @@ class Targeting:
     -2 means everywhere but the caster itself
     """
 
-    def __init__(self, friendly: bool, selective: bool, *args: int):
+    def __init__(self, friendly: bool = True, selective: bool = False, *args: int) -> None:
         self.friendly = friendly
         self.selective = selective
         self.positions = args
@@ -105,6 +105,12 @@ class Targeting:
         return len(self) == 1 and self[0] == EXCEPT_SELF
 
     def alt(self, position: Position) -> Targeting:
+        """
+        interpret the position and return a new Targeting
+        @rtype: Targeting
+        @param position:
+        @return:
+        """
         if self.selfhood:
             return Targeting(self.friendly, self.selective, position[1])
         elif self.selfless:
@@ -127,6 +133,26 @@ class Targeting:
             return self
         else:
             return Targeting(self.friendly, self.selective, pos)
+
+    def set_friendliness(self, friendly: bool) -> Targeting:
+        self.friendly = friendly
+        return self
+
+    def set_selectiveness(self, selective: bool) -> Targeting:
+        self.selective = selective
+        return self
+
+    def set_positions(self, *args: int) -> Targeting:
+        self.positions = args
+        return self
+
+    @staticmethod
+    def only_self() -> Targeting:
+        return Targeting(True, True, ONLY_SELF)
+
+    @staticmethod
+    def except_self() -> Targeting:
+        return Targeting(True, True, EXCEPT_SELF)
 
 
 # region Buffs
@@ -398,7 +424,7 @@ class CombatantMixIn(ABC):
         factors = self.modify(Timing.Move, **kws)
         self.after_affect(Timing.Move, factors, **kws)
 
-    def move(self, target: int, baton: dict[str, Any]=None):
+    def move(self, target: int, baton: dict[str, Any] = None):
         baton = baton.update({TARGET_POSITION: target}) if baton else {TARGET_POSITION: target}
         factors = self.modify(Timing.Move, baton)
         Arena().move(self, target)
@@ -661,6 +687,7 @@ class Action:
     secondly, check post-requirements, check if there is any invalid target, if so, raise an error
     thirdly, execute effects, apply effects to targets selected in the second step or the fixed targets
     """
+
     def __init__(self, pre_reqm: tuple[PreReqm, ...], post_reqm: tuple[PostReqm, ...],
                  effects: tuple[tuple[Targeting, Effect], ...], baton=None):
         self.pre_reqm = pre_reqm
@@ -814,6 +841,12 @@ class Equipage(dict[Slot, Optional[Equipment]]):
 class EquipageMixIn:
     def __init__(self, *equipment: Equipment):
         self.equipage = Equipage(*equipment)
+
+    def equip(self, equipment: Equipment):
+        self.equipage.equip(equipment)
+
+    def unequip(self, slot: Slot):
+        self.equipage.unequip(slot)
 
 
 # endregion
