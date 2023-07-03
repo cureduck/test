@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import random
-
 
 class RandomStub:
     def randint(self, a, b):
@@ -32,5 +30,5 @@ class RandomStub:
         return .5
 
 
-#game_random = random.Random()
+# game_random = random.Random()
 game_random = RandomStub()
