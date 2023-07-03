@@ -22,16 +22,16 @@ class TestDodge(unittest.TestCase):
     def test_used1(self):
         patcher = patch.object(game_random, 'random', return_value=0.0)
         patcher.start()
-        self.a.attack(self.e, (10, 10), {ATTACK: None}, crit=0)
-        # self.assertEqual(self.e.cur_hp, 14)
-        # 随机数暂未实现
+        self.a.attack(self.e,(10,10),{ATTACK: None},crit = 0)
+        self.assertEqual(self.e.cur_hp, 14)
         patcher.stop()
 
-    @patch("random.random", return_value=0.6)
-    def test_used2(self, mock_randint):
-        self.a.attack(self.f, (10, 10), {ATTACK: None}, crit=0)
-        # self.assertEqual(self.f.cur_hp, 14)
-        # 随机数待实现
+    def test_used2(self):
+        patcher = patch.object(game_random, 'random', return_value=1.0)
+        patcher.start()
+        self.a.attack(self.f,(10,10),{ATTACK: None},crit = 0)
+        self.assertEqual(self.f.cur_hp, 24) 
+        patcher.stop()
 
 
 class TestStrength(unittest.TestCase):
