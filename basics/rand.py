@@ -27,8 +27,20 @@ class RandomStub:
         return low
 
     def random(self):
-        return .5
+        if hasattr(self, "seq"):
+            return self.seq.pop(0)
+        else:
+            return 0.5
+
+    def set_sequence(self, seq: list[float]):
+        self.seq = seq
 
 
-# game_random = random.Random()
-game_random = RandomStub()
+random_stub = True
+
+if random_stub:
+    game_random = RandomStub()
+else:
+    import random
+
+    game_random = random.Random()

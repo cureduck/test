@@ -75,8 +75,8 @@ class Move(Action):
     def __init__(self, distance: int):
         super().__init__(
             (),
-            (PosReqm(Targeting(True, True, EXCEPT_SELF)), DistanceLimitReqm(distance)),
-            ((Targeting(True, True, EXCEPT_SELF), MoveTo(distance)),)
+            (PosReqm(Targeting.except_self()), DistanceLimitReqm(distance)),
+            ((Targeting.except_self(), MoveTo(distance)),)
         )
 
 

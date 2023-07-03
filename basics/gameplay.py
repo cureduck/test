@@ -154,6 +154,30 @@ class Targeting:
     def except_self() -> Targeting:
         return Targeting(True, True, EXCEPT_SELF)
 
+    @staticmethod
+    def all_ally() -> Targeting:
+        return Targeting(True, False, *range(ARENA_WIDTH))
+
+    @staticmethod
+    def all_enemy() -> Targeting:
+        return Targeting(False, False, *range(ARENA_WIDTH))
+
+    @staticmethod
+    def selective_ally(*args: int) -> Targeting:
+        return Targeting(True, True, *args)
+
+    @staticmethod
+    def selective_enemy(*args: int) -> Targeting:
+        return Targeting(False, True, *args)
+
+    @staticmethod
+    def aoe_ally(*args: int) -> Targeting:
+        return Targeting(True, False, *args)
+
+    @staticmethod
+    def aoe_enemy(*args: int) -> Targeting:
+        return Targeting(False, False, *args)
+
 
 # region Buffs
 class Buff(FactorMixIn, ABC):
