@@ -109,3 +109,15 @@ class TestCombo(unittest.TestCase):
     def test_used(self):
         pass
     # combo方法未完成
+
+class TestBlock(unittest.TestCase):
+    def setUp(self):
+        self.a = Character("a", 13, 20, 3, Buffs(Block()), Sword())
+        self.b = Character("b", 13, 20, 4, Buffs(), Sword())
+
+        self.arena = Arena([self.a,],[self.b,])
+    
+    #攻击伤害系数降低0.5
+    def test_used(self):
+        self.b.attack(self.a,(10,10),{ATTACK: None},crit = 0)
+        self.assertEqual(self.a.cur_hp,8)

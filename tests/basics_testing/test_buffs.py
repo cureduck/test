@@ -81,3 +81,21 @@ class test_combo(unittest.TestCase):
     def test_repr(self):
         combo = Combo()
         assert repr(combo) == "C"
+
+class test_Block(unittest.TestCase):
+    def test_may_affect(self):
+        block = Block()
+        baton = {Attack: True}
+        assert block.may_affect(Timing.Defend, baton) == True
+        assert block.may_affect(Timing.Attack, baton) == False
+     
+    #def test_affect(self):
+    #特殊方法测试在test_buffs_ues.py
+
+    def test_repr(self):
+        block = Block()
+        assert repr(block) == "B"
+    
+    def test_name(self):
+        block = Block()
+        assert block.name == "Block"
