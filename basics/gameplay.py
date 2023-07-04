@@ -445,8 +445,8 @@ class CombatantMixIn(ABC):
 
     def moved(self, target: int):
         kws = {TARGET_POSITION: target}
-        factors = self.modify(Timing.Move, **kws)
-        self.after_affect(Timing.Move, factors, **kws)
+        factors = self.modify(Timing.Move, kws)
+        self.after_affect(Timing.Move, factors, kws)
 
     def move(self, target: int, baton: dict[str, Any] = None):
         baton = baton.update({TARGET_POSITION: target}) if baton else {TARGET_POSITION: target}
@@ -889,4 +889,9 @@ class Effect(ABC):
         @param baton: the keywords passed from previous effect
         @return:
         """
+        pass
+
+
+class Belief(ABC):
+    def __init__(self):
         pass

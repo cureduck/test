@@ -22,15 +22,15 @@ class TestDodge(unittest.TestCase):
     def test_used1(self):
         patcher = patch.object(game_random, 'random', return_value=0.0)
         patcher.start()
-        self.a.attack(self.e,(10,10),{ATTACK: None},crit = 0)
+        self.a.attack(self.e, (10, 10), {ATTACK: None}, crit=0)
         self.assertEqual(self.e.cur_hp, 14)
         patcher.stop()
 
     def test_used2(self):
         patcher = patch.object(game_random, 'random', return_value=1.0)
         patcher.start()
-        self.a.attack(self.f,(10,10),{ATTACK: None},crit = 0)
-        self.assertEqual(self.f.cur_hp, 24) 
+        self.a.attack(self.f, (10, 10), {ATTACK: None}, crit=0)
+        self.assertEqual(self.f.cur_hp, 24)
         patcher.stop()
 
 
@@ -110,14 +110,15 @@ class TestCombo(unittest.TestCase):
         pass
     # combo方法未完成
 
+
 class TestBlock(unittest.TestCase):
     def setUp(self):
         self.a = Character("a", 13, 20, 3, Buffs(Block()), Sword())
         self.b = Character("b", 13, 20, 4, Buffs(), Sword())
 
-        self.arena = Arena([self.a,],[self.b,])
-    
-    #攻击伤害系数降低0.5
+        self.arena = Arena([self.a, ], [self.b, ])
+
+    # 攻击伤害系数降低0.5
     def test_used(self):
-        self.b.attack(self.a,(10,10),{ATTACK: None},crit = 0)
-        self.assertEqual(self.a.cur_hp,8)
+        self.b.attack(self.a, (10, 10), {ATTACK: None}, crit=0)
+        self.assertEqual(self.a.cur_hp, 8)
