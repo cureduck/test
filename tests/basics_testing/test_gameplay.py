@@ -259,10 +259,8 @@ class TestArena(unittest.TestCase):
         self.c = Character("c", 12, 25, 9, Buffs(), Sword())
         self.d = Character("d", 18, 20, 2, Buffs(), Sword())
 
-
         self.e = Character("e", 20, 25, 5, Buffs(), Sword())
         self.f = Character("f", 0, 25, 1, Buffs(), Sword())
-
 
         self.arena = Arena([self.a, self.b, self.c, self.d], [self.e, ])
         self.arena.round = 0
@@ -280,7 +278,6 @@ class TestArena(unittest.TestCase):
         self.arena.move(self.c, 3)  # 不动
         self.assertEqual(self.arena.left[1], self.b)
         self.assertEqual(self.arena.left[2], self.c)
-
 
     def test_get_arena_info(self):
         self.arena.start()
@@ -337,12 +334,11 @@ class TestArena(unittest.TestCase):
 
     def test_round_over(self):
         self.assertFalse(self.arena.round_over)
-    
-        arena1 = Arena([self.a,self.f], [self.e, ])
+
+        arena1 = Arena([self.a, self.f], [self.e, ])
         arena1.action_order = [self.a, self.f, self.e]
         arena1.clean_dead_in_order()
-        self.assertEqual(arena1.action_order, [self.a,self.e])
-
+        self.assertEqual(arena1.action_order, [self.a, self.e])
 
     def test_trun(self):
         self.assertEqual(self.arena.turn, 0)
@@ -350,12 +346,12 @@ class TestArena(unittest.TestCase):
         self.assertEqual(self.arena.turn, 1)
 
     def test_is_over(self):
-        arena1 = Arena([self.f,], [self.e, ])
+        arena1 = Arena([self.f, ], [self.e, ])
         self.assertTrue(arena1.is_over)
 
-        arena2 = Arena([self.a,], [self.e, ])
-        #self.assertFalse(arena2.is_over)
-        #编译器犯病，但确实是False
+        arena2 = Arena([self.a, ], [self.e, ])
+        # self.assertFalse(arena2.is_over)
+        # 编译器犯病，但确实是False
 
 
 class TestAction(unittest.TestCase):
@@ -404,7 +400,6 @@ class TestAction(unittest.TestCase):
 
 class TestEquipage(unittest.TestCase):
     def setUp(self):
-
         self.equipage = Equipage(Sword())
 
     def test_get_actions(self):
@@ -414,11 +409,10 @@ class TestEquipage(unittest.TestCase):
         result0 = Slot.MainHand
         result1 = Slot.OffHand
 
-        self.assertEqual(result0,my_list[0])
-        self.assertEqual(result1,my_list[1])
+        self.assertEqual(result0, my_list[0])
+        self.assertEqual(result1, my_list[1])
 
     def test_equip(self):
-
         self.equipage.equip(Shield())
         my_list = list(self.equipage.keys())
 
@@ -427,16 +421,15 @@ class TestEquipage(unittest.TestCase):
         result2 = Slot.Amulet
         result3 = Slot.Armor
 
-        self.assertEqual(result0,my_list[0])
-        self.assertEqual(result1,my_list[1])
-        self.assertEqual(result2,my_list[2])
-        self.assertEqual(result3,my_list[3])
+        self.assertEqual(result0, my_list[0])
+        self.assertEqual(result1, my_list[1])
+        self.assertEqual(result2, my_list[2])
+        self.assertEqual(result3, my_list[3])
 
         with self.assertRaises(ValueError):
             self.equipage.equip(Sword())
 
     def test_unequip(self):
-
         with self.assertRaises(ValueError):
             self.equipage.unequip(Shield())
 
@@ -445,4 +438,4 @@ class TestEquipage(unittest.TestCase):
 
         my_list = list(self.equipage.values())
 
-        self.assertEqual(my_list[1],None)
+        self.assertEqual(my_list[1], None)

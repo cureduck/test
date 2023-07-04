@@ -2,6 +2,7 @@ import unittest
 
 from basics import *
 
+
 class TestTiming(unittest.TestCase):
 
     def test_timing(self):

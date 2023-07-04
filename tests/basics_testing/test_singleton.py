@@ -2,6 +2,7 @@ import unittest
 
 from basics import *
 
+
 class TestSingletonMixIn(unittest.TestCase):
 
     def test_single_instance(self):

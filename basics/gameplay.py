@@ -895,3 +895,9 @@ class Effect(ABC):
 class Belief(ABC):
     def __init__(self):
         pass
+
+
+class BelieverMixIn(ABC):
+    def __init__(self, belief: Belief, level: int):
+        self.belief = belief
+        self.level = level
