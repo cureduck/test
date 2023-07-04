@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .buffs import *
 from .effects import *
+from .gameplay import Targeting as Tar
 from .reqirements import *
 
 
@@ -13,13 +14,18 @@ class Bash(Action):
     """
 
     def __init__(self):
-        super().__init__((SelfPositionalRequirement(Position([True, 0, 1, 2])),),
-                         (PosReqm(Targeting(False, False, 0, 1, 2)), TargetAliveReqm(),), (
-                             (Targeting(False, False, 0, 1, 2), Damage((2, 4))),
-                             (Targeting(False, False, 0, 1, 2), ApplyTargetBuff(Combo())),
-                         ),
-                         {IGNORE_EVADE: True}
-                         )
+        super().__init__(
+            pre_reqm=(SelfPositionalRequirement(Position([True, 0, 1, 2])),),
+            post_reqm=(
+                PosReqm(Tar.aoe_enemy(0, 1, 2)),
+                TargetAliveReqm(),
+            ),
+            effects=(
+                (Tar.aoe_enemy(0, 1, 2), Damage((2, 4))),
+                (Tar.aoe_enemy(0, 1, 2), ApplyTargetBuff(Combo())),
+            ),
+            baton={IGNORE_EVADE: True}
+        )
 
 
 class Slash(Action):
