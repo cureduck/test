@@ -15,7 +15,9 @@ class Bash(Action):
 
     def __init__(self):
         super().__init__(
-            pre_reqm=(SelfPositionalRequirement(Position([True, 0, 1, 2])),),
+            pre_reqm=(
+                SelfPositionalRequirement(Position([True, 0, 1, 2])),
+            ),
             post_reqm=(
                 PosReqm(Tar.aoe_enemy(0, 1, 2)),
                 TargetAliveReqm(),
